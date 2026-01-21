@@ -7,10 +7,10 @@
 
 import React, { useReducer, useCallback } from 'react';
 import { GameStateContext } from './context.js';
-import { createBehaviorFlags, recordProfileAccess, recordDeletedMessageRead, recordRegionSwitch, recordTerminalCommand, recordAuditCompleted } from '../core/gameState/behaviorFlags.js';
-import { createProgressionState, triggerPasswordShift, recordClueFound, recordOverseerMessage } from '../core/gameState/progression.js';
-import { shouldRequirePassword } from '../core/access/passwordRules.js';
-import { checkOverseerTrigger } from '../core/overseer/overseerTriggers.js';
+import { createBehaviorFlags, recordProfileAccess, recordDeletedMessageRead, recordRegionSwitch, recordTerminalCommand, recordAuditCompleted } from './behaviorFlags.js';
+import { createProgressionState, triggerPasswordShift, recordClueFound, recordOverseerMessage } from './progression.js';
+import { shouldRequirePassword } from '../access/passwordRules.js';
+import { checkOverseerTrigger } from '../overseer/overseerTriggers.js';
 
 // Initial state
 const initialState = {
@@ -131,7 +131,6 @@ function gameStateReducer(state, action) {
             return state;
     }
 }
-
 
 // Provider component
 export function GameStateProvider({ children }) {

@@ -13,9 +13,12 @@ import { LEDGER_DATA, CURRENT_YEAR, FRAUD_VENDOR } from './data/documents/ledger
 import { SOLUTIONS } from './data/clues/index.js';
 import { DIRECTORY_EMPLOYEES, DIRECTORY_FILTERS } from './data/profiles/directory.js';
 import { CLEARANCE, getClearanceLevel } from './core/access/clearanceLevels.js';
+import { useGameState } from './core/gameState/hooks.js';
+import OverseerMessage from './ui/overlays/OverseerMessage.jsx';
 
 
 const CorporatePortal = () => {
+    const { state, actions } = useGameState();
     // --- STATE ---
     const [currentView, setCurrentView] = useState('login');
     const [user, setUser] = useState(null);
@@ -108,6 +111,9 @@ const CorporatePortal = () => {
         setSelectedMessage(null);
         setAuditReport(null);
         setIsMobileMenuOpen(false);
+
+        // Track behavior
+        actions.switchRegion(newTab);
     };
 
     const removeNotification = (id) => {
@@ -140,6 +146,9 @@ const CorporatePortal = () => {
         if (targetUser.notifications) {
             targetUser.notifications.forEach(n => addNotification(n.from, n.text));
         }
+
+        // Track behavior: Login / Access Profile 
+        actions.accessProfile(id);
     };
 
     const handleLogout = () => {
@@ -176,6 +185,7 @@ const CorporatePortal = () => {
         const noFalsePositives = selectedTx.every(id => fraudIds.includes(id));
 
         if (caughtAll && noFalsePositives) {
+            actions.completeAudit();
             setAuditReport({
                 status: "SUCCESS",
                 suspect: "David Bowman",
@@ -198,14 +208,18 @@ const CorporatePortal = () => {
         const newOutput = [...termOutput, `> ${termInput}`];
 
         if (cmd === 'help') {
+            actions.runTerminalCommand('help');
             newOutput.push("COMMANDS:", "  scan_network        - View active nodes", "  list_users          - Show active badge IDs", "  ssh [badge_id]      - Remote login to user profile");
         } else if (cmd === 'scan_network') {
+            actions.runTerminalCommand('scan_network');
             newOutput.push("Scanning...", "Node-666 [CRITICAL] - Sector 7", "Node-001 [ONLINE] - Mainframe");
         } else if (cmd === 'list_users') {
+            actions.runTerminalCommand('list_users');
             newOutput.push("ACTIVE SESSIONS:", "  9000 - SYSADMIN (You)", "  1998 - G. FREEMAN", "  1001 - I. CLARKE", "  4492 - P. VANCE", "  7331 - J. HALPERT");
         } else if (parts[0] === 'ssh') {
             const targetId = parts[1];
             if (USER_DB[targetId]) {
+                actions.runTerminalCommand(`ssh ${targetId}`);
                 setOriginalUser(user);
                 setUser({ ...USER_DB[targetId], id: targetId });
                 handleTabChange('dashboard');
@@ -228,6 +242,7 @@ const CorporatePortal = () => {
 
     const handleVaultUnlock = () => {
         if (vaultPin === '1979') {
+            actions.findClue('BLACK_FILES');
             setVaultUnlocked(true);
         } else {
             alert("ACCESS DENIED: PIN Incorrect.");
@@ -418,7 +433,10 @@ const CorporatePortal = () => {
                             return (
                                 <div
                                     key={msg.id}
-                                    onClick={() => setSelectedMessage(msg)}
+                                    onClick={() => {
+                                        setSelectedMessage(msg);
+                                        if (msg.deleted) actions.readDeletedMessage();
+                                    }}
                                     className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${msg.deleted ? 'bg-red-50 hover:bg-red-100' : ''} ${msg.isNew ? 'bg-blue-50 border-l-4 border-blue-500' : ''}`}
                                 >
                                     <div className="flex justify-between mb-1">
@@ -795,6 +813,14 @@ const CorporatePortal = () => {
                     {activeTab === 'restricted' && renderRestricted()}
                 </main>
             </div>
+
+            {/* OVERSEER OVERLAY */}
+            {state.pendingOverseerMessage && (
+                <OverseerMessage
+                    message={state.pendingOverseerMessage}
+                    onDismiss={actions.dismissOverseerMessage}
+                />
+            )}
         </div>
     );
 };
