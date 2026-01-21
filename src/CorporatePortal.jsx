@@ -25,7 +25,6 @@ const CorporatePortal = () => {
     const [loginId, setLoginId] = useState('');
     const [loginPass, setLoginPass] = useState('');
     const [loginError, setLoginError] = useState('');
-    const [showHintModal, setShowHintModal] = useState(false);
     const [showPass, setShowPass] = useState(false);
 
     // Navigation
@@ -68,28 +67,7 @@ const CorporatePortal = () => {
 
     // --- EFFECTS & HELPERS ---
 
-    useEffect(() => {
-        // Clear message selection when tab changes
-        setSelectedMessage(null);
-        setAuditReport(null);
-        setIsMobileMenuOpen(false); // Close menu on nav
-    }, [activeTab]);
-
-    useEffect(() => {
-        if (!user) return;
-
-        // Finance tab - audit hint (only show once)
-        const messageId = 'finance_audit_hint';
-        if (user.role === 'AUDITOR_TEMP' && activeTab === 'finance' && !shownMessageIds.has(messageId)) {
-            const timer = setTimeout(() => {
-                addNotification("Audit Reminder", "Remember: Flag transactions that look like they are splitting a large payment into smaller chunks.", "Sarah Kone");
-                setShownMessageIds(prev => new Set(prev).add(messageId));
-            }, 1500);
-            return () => clearTimeout(timer);
-        }
-    }, [activeTab, user, shownMessageIds]);
-
-    const addNotification = (title, msg, from = "System") => {
+    function addNotification(title, msg, from = "System") {
         const timestamp = Date.now();
         const id = `${timestamp}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -107,6 +85,29 @@ const CorporatePortal = () => {
             isNew: true
         };
         setInboxMessages(prev => [newInboxMsg, ...prev]);
+    }
+
+
+
+    useEffect(() => {
+        if (!user) return;
+
+        // Finance tab - audit hint (only show once)
+        const messageId = 'finance_audit_hint';
+        if (user.role === 'AUDITOR_TEMP' && activeTab === 'finance' && !shownMessageIds.has(messageId)) {
+            const timer = setTimeout(() => {
+                addNotification("Audit Reminder", "Remember: Flag transactions that look like they are splitting a large payment into smaller chunks.", "Sarah Kone");
+                setShownMessageIds(prev => new Set(prev).add(messageId));
+            }, 1500);
+            return () => clearTimeout(timer);
+        }
+    }, [activeTab, user, shownMessageIds]);
+
+    const handleTabChange = (newTab) => {
+        setActiveTab(newTab);
+        setSelectedMessage(null);
+        setAuditReport(null);
+        setIsMobileMenuOpen(false);
     };
 
     const removeNotification = (id) => {
@@ -132,7 +133,7 @@ const CorporatePortal = () => {
 
         setUser({ ...targetUser, id });
         setCurrentView('portal');
-        setActiveTab('dashboard');
+        handleTabChange('dashboard');
         setLoginError('');
         setNotifications([]);
 
@@ -145,7 +146,7 @@ const CorporatePortal = () => {
         setUser(null);
         setOriginalUser(null);
         setCurrentView('login');
-        setActiveTab('dashboard');
+        handleTabChange('dashboard');
         setVaultUnlocked(false);
         setUnlocked(false);
         setSelectedMessage(null);
@@ -155,7 +156,7 @@ const CorporatePortal = () => {
         if (originalUser) {
             setUser(originalUser);
             setOriginalUser(null);
-            setActiveTab('terminal');
+            handleTabChange('terminal');
         }
     };
 
@@ -207,7 +208,7 @@ const CorporatePortal = () => {
             if (USER_DB[targetId]) {
                 setOriginalUser(user);
                 setUser({ ...USER_DB[targetId], id: targetId });
-                setActiveTab('dashboard');
+                handleTabChange('dashboard');
                 setTermInput('');
                 return;
             } else {
@@ -729,31 +730,7 @@ const CorporatePortal = () => {
     const headerTheme = isOverseer ? 'bg-red-900/20 border-red-900' : (isRemote ? 'bg-indigo-900 border-indigo-700 text-white' : 'bg-white border-gray-300');
     const accentColor = isOverseer ? 'text-red-500' : (isRemote ? 'text-white' : 'text-blue-700');
 
-    const SidebarContent = () => (
-        <div className="p-4 space-y-1 h-full overflow-y-auto">
-            <NavBtn label="Dashboard" icon={<Activity />} active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-            <NavBtn label="Messages" icon={<Mail />} active={activeTab === 'messages'} onClick={() => setActiveTab('messages')} />
-            {user.permissions.includes('finance') && <NavBtn label="Finance Audit" icon={<DollarSign />} active={activeTab === 'finance'} onClick={() => setActiveTab('finance')} />}
-            {user.permissions.includes('directory') ? (
-                <NavBtn label="Directory" icon={<Users />} active={activeTab === 'directory'} onClick={() => setActiveTab('directory')} />
-            ) : (
-                <div className="flex items-center gap-3 px-4 py-3 text-sm text-gray-400 cursor-not-allowed"><Lock size={18} /> Directory</div>
-            )}
-            {user.permissions.includes('terminal') && <NavBtn label="Sys Terminal" icon={<Terminal />} active={activeTab === 'terminal'} onClick={() => setActiveTab('terminal')} />}
-            {user.permissions.includes('documents') && <NavBtn label="Secure Archives" icon={<Folder />} active={activeTab === 'documents'} onClick={() => setActiveTab('documents')} />}
-            {user.permissions.includes('infrastructure') && <NavBtn label="Infrastructure" icon={<Server />} active={activeTab === 'infrastructure'} onClick={() => setActiveTab('infrastructure')} />}
-            {user.permissions.includes('history') && <NavBtn label="History" icon={<Building2 />} active={activeTab === 'history'} onClick={() => setActiveTab('history')} />}
 
-            <div className="pt-4 mt-4 border-t border-gray-100">
-                <p className="px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Restricted Zones</p>
-                {user.permissions.includes('restricted') ? (
-                    <button onClick={() => setActiveTab('restricted')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded transition-colors ${activeTab === 'restricted' ? 'bg-red-50 text-red-600' : 'text-gray-500 hover:bg-gray-50'}`}><Skull size={18} /> PROJECT OMEGA</button>
-                ) : (
-                    <div className="flex items-center gap-3 px-4 py-3 text-sm text-gray-300"><Lock size={18} /> PROJECT OMEGA</div>
-                )}
-            </div>
-        </div>
-    );
 
     return (
         <div className={`min-h-screen font-sans flex flex-col transition-colors duration-1000 ${theme}`}>
@@ -798,7 +775,11 @@ const CorporatePortal = () => {
           md:relative md:translate-x-0
           ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
         `}>
-                    <SidebarContent />
+                    <SidebarContent
+                        user={user}
+                        activeTab={activeTab}
+                        handleTabChange={handleTabChange}
+                    />
                 </aside>
 
                 {/* MAIN CONTENT */}
@@ -819,6 +800,32 @@ const CorporatePortal = () => {
 };
 
 // --- SUB COMPONENTS ---
+const SidebarContent = ({ user, activeTab, handleTabChange }) => (
+    <div className="p-4 space-y-1 h-full overflow-y-auto">
+        <NavBtn label="Dashboard" icon={<Activity />} active={activeTab === 'dashboard'} onClick={() => handleTabChange('dashboard')} />
+        <NavBtn label="Messages" icon={<Mail />} active={activeTab === 'messages'} onClick={() => handleTabChange('messages')} />
+        {user.permissions.includes('finance') && <NavBtn label="Finance Audit" icon={<DollarSign />} active={activeTab === 'finance'} onClick={() => handleTabChange('finance')} />}
+        {user.permissions.includes('directory') ? (
+            <NavBtn label="Directory" icon={<Users />} active={activeTab === 'directory'} onClick={() => handleTabChange('directory')} />
+        ) : (
+            <div className="flex items-center gap-3 px-4 py-3 text-sm text-gray-400 cursor-not-allowed"><Lock size={18} /> Directory</div>
+        )}
+        {user.permissions.includes('terminal') && <NavBtn label="Sys Terminal" icon={<Terminal />} active={activeTab === 'terminal'} onClick={() => handleTabChange('terminal')} />}
+        {user.permissions.includes('documents') && <NavBtn label="Secure Archives" icon={<Folder />} active={activeTab === 'documents'} onClick={() => handleTabChange('documents')} />}
+        {user.permissions.includes('infrastructure') && <NavBtn label="Infrastructure" icon={<Server />} active={activeTab === 'infrastructure'} onClick={() => handleTabChange('infrastructure')} />}
+        {user.permissions.includes('history') && <NavBtn label="History" icon={<Building2 />} active={activeTab === 'history'} onClick={() => handleTabChange('history')} />}
+
+        <div className="pt-4 mt-4 border-t border-gray-100">
+            <p className="px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Restricted Zones</p>
+            {user.permissions.includes('restricted') ? (
+                <button onClick={() => handleTabChange('restricted')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded transition-colors ${activeTab === 'restricted' ? 'bg-red-50 text-red-600' : 'text-gray-500 hover:bg-gray-50'}`}><Skull size={18} /> PROJECT OMEGA</button>
+            ) : (
+                <div className="flex items-center gap-3 px-4 py-3 text-sm text-gray-300"><Lock size={18} /> PROJECT OMEGA</div>
+            )}
+        </div>
+    </div>
+);
+
 const NavBtn = ({ label, icon, active, onClick }) => (
     <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded transition-all ${active ? 'bg-blue-50 text-blue-700 border-r-4 border-blue-600' : 'text-gray-600 hover:bg-gray-100'}`}>
         {React.cloneElement(icon, { size: 18 })}

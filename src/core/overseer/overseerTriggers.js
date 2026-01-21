@@ -36,9 +36,8 @@ const TRIGGER_CONDITIONS = {
     },
 
     // Correlation: Player connects information
-    CORRELATION: (behavior, prev) => {
+    CORRELATION: (behavior) => {
         // Accessed profiles from different departments
-        const deptsCovered = new Set();
         // This would check profile regions/departments
         if (behavior.profilesAccessed.length >= 4 && behavior.documentsViewed.length >= 2) {
             return true;
@@ -47,7 +46,7 @@ const TRIGGER_CONDITIONS = {
     },
 
     // Pattern: Consistent behavior
-    PATTERN: (behavior, prev) => {
+    PATTERN: (behavior) => {
         // Regular terminal usage
         if (behavior.terminalCommandsRun.length >= 5) {
             return true;

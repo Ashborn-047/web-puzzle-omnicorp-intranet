@@ -5,7 +5,8 @@
  * Provides behavior tracking, progression, and Overseer integration.
  */
 
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import React, { useReducer, useCallback } from 'react';
+import { GameStateContext } from './context.js';
 import { createBehaviorFlags, recordProfileAccess, recordDeletedMessageRead, recordRegionSwitch, recordTerminalCommand, recordAuditCompleted } from '../core/gameState/behaviorFlags.js';
 import { createProgressionState, triggerPasswordShift, recordClueFound, recordOverseerMessage } from '../core/gameState/progression.js';
 import { shouldRequirePassword } from '../core/access/passwordRules.js';
@@ -131,8 +132,6 @@ function gameStateReducer(state, action) {
     }
 }
 
-// Context
-const GameStateContext = createContext(null);
 
 // Provider component
 export function GameStateProvider({ children }) {
@@ -182,34 +181,4 @@ export function GameStateProvider({ children }) {
             {children}
         </GameStateContext.Provider>
     );
-}
-
-// Hook to use game state
-export function useGameState() {
-    const context = useContext(GameStateContext);
-    if (!context) {
-        throw new Error('useGameState must be used within a GameStateProvider');
-    }
-    return context;
-}
-
-// Selector hooks
-export function useBehavior() {
-    const { state } = useGameState();
-    return state.behavior;
-}
-
-export function useProgression() {
-    const { state } = useGameState();
-    return state.progression;
-}
-
-export function usePasswordMode() {
-    const { state } = useGameState();
-    return state.progression.loginMode;
-}
-
-export function usePendingOverseerMessage() {
-    const { state } = useGameState();
-    return state.pendingOverseerMessage;
 }
