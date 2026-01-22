@@ -14,12 +14,50 @@ export const tempAuditor = {
     region: "HQ",
     clearance: "EXTERNAL",
     permissions: ['dashboard', 'finance', 'messages'],
-    notifications: [
-        { from: "System", text: "Directory Access: DENIED (L1 Clearance Required)" },
-        { from: "Sarah Kone", text: "I've uploaded the Procurement Ledger. Look for 'Structuring' - payments just under $5k to avoid Exec approval." }
-    ],
+    notifications: [],
     messages: [
-        { id: 1, from: "System", subject: "Welcome Guest", body: "Your temporary credentials allow access to Financial Modules only.", date: "Today" },
-        { id: 2, from: "Sarah Kone", subject: "Audit Strategy", body: "We suspect someone in IT is siphoning funds. They are smart - they keep individual transactions under the $5,000 approval limit. Look for repeated payments to the same vendor.\n\n- Sarah Kone\nChief Internal Auditor\nBadge ID: 7700", date: "Yesterday" }
+        {
+            id: 201,
+            from: "Mark Thompson (Senior Auditor)",
+            subject: "Expenditure Packet — Group A (May)",
+            body: "Please review attached expenditures for compliance with approval policy. Flag any deviations.",
+            date: "Today",
+            attachment: {
+                type: "PACKET",
+                name: "Packet_A_May.doc",
+                categories: ["Procurement", "Travel", "Software & Licensing", "Facilities & Maintenance"]
+            }
+        },
+        {
+            id: 202,
+            from: "Mark Thompson (Senior Auditor)",
+            subject: "Expenditure Packet — Group B (May)",
+            body: "Please review attached expenditures for compliance with approval policy. Flag any deviations.",
+            date: "Today",
+            attachment: {
+                type: "PACKET",
+                name: "Packet_B_May.doc",
+                categories: ["R&D Equipment", "Cloud Infrastructure", "Security & Compliance"]
+            }
+        },
+        {
+            id: 203,
+            from: "Mark Thompson (Senior Auditor)",
+            subject: "Expenditure Packet — Group C (May)",
+            body: "Please review attached expenditures for compliance with approval policy. Flag any deviations.",
+            date: "Today",
+            attachment: {
+                type: "PACKET",
+                name: "Packet_C_May.doc",
+                categories: ["Consulting & Professional Services", "Logistics & Supply Chain", "Miscellaneous Operations"]
+            }
+        },
+        {
+            id: 101,
+            from: "System",
+            subject: "Session Access Confirmation",
+            body: "This session has been authorized under External Audit Contract #E-4471.\n\nPlease complete any outstanding reviews before end of day.",
+            date: "Today"
+        }
     ]
 };

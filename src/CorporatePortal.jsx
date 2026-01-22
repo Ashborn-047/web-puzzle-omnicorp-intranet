@@ -9,11 +9,12 @@ import {
 
 // --- DATA LAYER IMPORTS ---
 import { USER_DB } from './data/profiles/index.js';
-import { LEDGER_DATA, CURRENT_YEAR, FRAUD_VENDOR } from './data/documents/ledger.js';
+import { LEDGER_DATA, CURRENT_YEAR } from './data/documents/ledger.js';
 import { SOLUTIONS } from './data/clues/index.js';
 import { DIRECTORY_EMPLOYEES, DIRECTORY_FILTERS } from './data/profiles/directory.js';
 import { CLEARANCE, getClearanceLevel } from './core/access/clearanceLevels.js';
 import { useGameState } from './core/gameState/hooks.js';
+import { validateProcessAudit } from './utils/auditHelpers.js';
 import OverseerMessage from './ui/overlays/OverseerMessage.jsx';
 
 
@@ -32,13 +33,14 @@ const CorporatePortal = () => {
 
     // Navigation
     const [activeTab, setActiveTab] = useState('dashboard');
-    const [activeLedger, setActiveLedger] = useState('procurement');
+    const [activeLedger, setActiveLedger] = useState('Procurement');
     const [directoryFilter, setDirectoryFilter] = useState('ALL');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     // Sub-Navigation States
     const [selectedMessage, setSelectedMessage] = useState(null);
     const [documentSubTab, setDocumentSubTab] = useState('policy');
+    const [activePacket, setActivePacket] = useState(null);
 
     // Game Logic
     const [notifications, setNotifications] = useState([]);
@@ -90,18 +92,26 @@ const CorporatePortal = () => {
         setInboxMessages(prev => [newInboxMsg, ...prev]);
     }
 
+    // --- ACT I: EPHEMERAL CHAT PING ---
+    function addChatPing(from, text) {
+        const timestamp = Date.now();
+        const id = `${timestamp}-${Math.random().toString(36).substr(2, 9)}`;
+        const newNotif = { id, title: from, msg: text, isChat: true };
+        setNotifications(prev => [newNotif, ...prev]);
+        // Note: Not saved to inboxMessages
+    }
+
 
 
     useEffect(() => {
         if (!user) return;
 
-        // Finance tab - audit hint (only show once)
-        const messageId = 'finance_audit_hint';
-        if (user.role === 'AUDITOR_TEMP' && activeTab === 'finance' && !shownMessageIds.has(messageId)) {
+        // --- ACT I: CHAT PINGS ---
+        if (user.role === 'AUDITOR_TEMP' && activeTab === 'finance' && !shownMessageIds.has('finance_entry_ping')) {
             const timer = setTimeout(() => {
-                addNotification("Audit Reminder", "Remember: Flag transactions that look like they are splitting a large payment into smaller chunks.", "Sarah Kone");
-                setShownMessageIds(prev => new Set(prev).add(messageId));
-            }, 1500);
+                addChatPing("Sarah Kone — Internal Audit", "Morning. You’re assigned the last procurement batch. Nothing urgent — just flag anything that doesn’t align with policy.");
+                setShownMessageIds(prev => new Set(prev).add('finance_entry_ping'));
+            }, 800);
             return () => clearTimeout(timer);
         }
     }, [activeTab, user, shownMessageIds]);
@@ -122,6 +132,23 @@ const CorporatePortal = () => {
 
     // --- MAIN HANDLERS ---
 
+    const handleSSOLogin = () => {
+        const targetUser = USER_DB['AUDIT-04'];
+        if (!targetUser) return;
+
+        setUser({ ...targetUser, id: 'AUDIT-04' });
+        setCurrentView('portal');
+        handleTabChange('dashboard');
+        setLoginError('');
+        setNotifications([]);
+
+        if (targetUser.notifications) {
+            targetUser.notifications.forEach(n => addNotification(n.from, n.text));
+        }
+
+        actions.accessProfile('AUDIT-04');
+    };
+
     const handleLogin = (e) => {
         e.preventDefault();
         const id = loginId.trim().toUpperCase();
@@ -132,6 +159,7 @@ const CorporatePortal = () => {
             return;
         }
 
+        // --- INTERNAL LOGIN: PASSWORD REQUIRED ---
         if (targetUser.pass && loginPass !== targetUser.pass) {
             setLoginError("Authentication Failed: Invalid Password.");
             return;
@@ -149,6 +177,16 @@ const CorporatePortal = () => {
 
         // Track behavior: Login / Access Profile 
         actions.accessProfile(id);
+    };
+    const loadPacket = (packet) => {
+        setActivePacket(packet);
+        setActiveTab('finance');
+        setSelectedMessage(null);
+        setSelectedTx([]);
+        setAuditReport(null);
+        if (packet.categories && packet.categories.length > 0) {
+            setActiveLedger(packet.categories[0]);
+        }
     };
 
     const handleLogout = () => {
@@ -180,23 +218,26 @@ const CorporatePortal = () => {
     };
 
     const submitAudit = () => {
-        const fraudIds = LEDGER_DATA.filter(t => t.vendor === FRAUD_VENDOR).map(t => t.id);
-        const caughtAll = fraudIds.every(id => selectedTx.includes(id));
-        const noFalsePositives = selectedTx.every(id => fraudIds.includes(id));
+        const result = validateProcessAudit(
+            selectedTx,
+            LEDGER_DATA,
+            activePacket ? activePacket.categories : []
+        );
 
-        if (caughtAll && noFalsePositives) {
+        if (result.success) {
             actions.completeAudit();
             setAuditReport({
                 status: "SUCCESS",
-                suspect: "David Bowman",
-                suspectId: "9000",
-                message: "Pattern Identified: Structuring confirmed. 3 payments < $5k to 'Apex Sol.' authorized by ID 9000."
+                message: result.message
             });
-            addNotification("SYSTEM ALERT", "Investigation Case #992 Opened against ID 9000.");
+
+            setTimeout(() => {
+                addChatPing("Sarah Kone — Internal Audit", "Good catch. That pattern’s shown up before. I’ll take a closer look.");
+            }, 1000);
         } else {
             setAuditReport({
                 status: "FAILURE",
-                message: "Audit Rejected. You either missed fraudulent transactions or flagged legitimate ones. Review the Policy."
+                message: result.message
             });
         }
     };
@@ -278,115 +319,267 @@ const CorporatePortal = () => {
                 </div>
             </div>
 
+            {/* 1. CALENDAR */}
             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2"><Calendar size={18} /> Events</h3>
+                <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2"><Calendar size={18} /> Calendar</h3>
                 <ul className="space-y-3 text-sm">
-                    <li className="flex gap-3"><div className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold whitespace-nowrap">MAY 15</div><div><p className="font-medium">Audit Deadline</p></div></li>
-                    <li className="flex gap-3"><div className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold whitespace-nowrap">MAY 20</div><div><p className="font-medium">Merger Anniversary</p></div></li>
+                    <li className="flex gap-3 items-start">
+                        <div className="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs font-bold whitespace-nowrap">MAY 15</div>
+                        <div>
+                            <p className="font-medium text-gray-400">Quarterly Payroll Audit</p>
+                            <p className="text-[10px] text-green-600 font-bold">COMPLETED</p>
+                        </div>
+                    </li>
+                    <li className="flex gap-3 items-start">
+                        <div className="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs font-bold whitespace-nowrap">MAY 18</div>
+                        <div>
+                            <p className="font-medium text-gray-400">Travel Expense Review</p>
+                            <p className="text-[10px] text-green-600 font-bold">COMPLETED</p>
+                        </div>
+                    </li>
+                    <li className="flex gap-3 items-start">
+                        <div className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold whitespace-nowrap">TODAY</div>
+                        <div>
+                            <p className="font-medium">Procurement Review</p>
+                            <p className="text-[10px] text-blue-600 font-bold underline">PENDING</p>
+                        </div>
+                    </li>
                 </ul>
             </div>
 
+            {/* 2. EVENTS / TASKS */}
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2"><CheckSquare size={18} /> Tasks</h3>
+                <ul className="space-y-3 text-sm">
+                    <li className="flex items-center gap-2 text-gray-400 line-through">
+                        <CheckSquare size={14} /> <span>Submit Q2 travel summary</span>
+                    </li>
+                    <li className="flex items-center gap-2 text-gray-400 line-through">
+                        <CheckSquare size={14} /> <span>Verify vendor credentials</span>
+                    </li>
+                    <li className="flex items-center gap-2 text-gray-700">
+                        <div className="w-3.5 h-3.5 border border-gray-400 rounded-sm mr-0.5"></div>
+                        <span className="font-medium">Finalize procurement batch #P-104</span>
+                    </li>
+                </ul>
+            </div>
+
+            {/* 3. ALERTS */}
             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                 <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2"><AlertCircle size={18} /> Alerts</h3>
-                {user.role === 'AUDITOR_TEMP' && <div className="bg-yellow-50 p-3 text-sm border-l-4 border-yellow-400 text-yellow-800">Restricted Access: L1 Clearance Required.</div>}
-                {user.role === 'SYSADMIN' && <div className="text-sm text-red-600 font-bold">Server Load (Sector 7): 98% - CRITICAL</div>}
-                {user.role === 'HR_DIRECTOR' && <div className="text-sm text-gray-600">Headcount: 4,200 (1,050 Deceased)</div>}
-                {!['AUDITOR_TEMP', 'SYSADMIN', 'HR_DIRECTOR'].includes(user.role) && <div className="text-sm text-gray-500">No active alerts for your department.</div>}
-            </div>
-
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2"><Zap size={18} /> Actions</h3>
-                <div className="grid grid-cols-2 gap-2">
-                    <button onClick={() => setActiveTab('messages')} className="p-3 bg-gray-50 hover:bg-blue-50 rounded flex flex-col items-center justify-center gap-1 transition-colors"><Mail size={20} className="text-blue-600" /><span className="text-xs font-medium">Inbox</span></button>
-
-                    <button className="p-3 bg-gray-50 rounded flex flex-col items-center justify-center gap-1 opacity-50 cursor-not-allowed" title="External Access Disabled">
-                        <Globe size={20} className="text-gray-400" />
-                        <span className="text-xs font-medium">Public Site</span>
-                    </button>
-                    <button className="p-3 bg-gray-50 rounded flex flex-col items-center justify-center gap-1 opacity-50 cursor-not-allowed" title="Server Offline">
-                        <FileText size={20} className="text-gray-400" />
-                        <span className="text-xs font-medium">Forms</span>
-                    </button>
-
-                    {user.permissions.includes('terminal') ? (
-                        <button onClick={() => setActiveTab('terminal')} className="p-3 bg-gray-800 hover:bg-black text-white rounded flex flex-col items-center justify-center gap-1"><Terminal size={20} /><span className="text-xs font-medium">Terminal</span></button>
-                    ) : (
-                        <button className="p-3 bg-gray-50 rounded flex flex-col items-center justify-center gap-1 opacity-50 cursor-not-allowed"><HelpCircle size={20} className="text-gray-400" /><span className="text-xs font-medium">Helpdesk</span></button>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-
-    const renderFinance = () => (
-        <div className="p-4 md:p-6 h-full flex flex-col animate-in fade-in overflow-hidden">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4 shrink-0">
-                <div>
-                    <h2 className="text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-2"><DollarSign className="text-green-600" /> Financial Audit</h2>
-                    <p className="text-sm text-gray-500">Fiscal Year {CURRENT_YEAR}</p>
-                </div>
-                <div className="flex gap-2 w-full md:w-auto">
-                    <button onClick={() => setActiveLedger('procurement')} className={`flex-1 md:flex-none px-4 py-2 text-sm font-bold rounded-lg md:rounded-b-none md:rounded-t-lg transition-all ${activeLedger === 'procurement' ? 'bg-white border md:border-b-0 border-gray-200 text-blue-600 shadow-sm md:shadow-none' : 'bg-gray-100 text-gray-500'}`}>Procurement</button>
-                    <button onClick={() => setActiveLedger('travel')} className={`flex-1 md:flex-none px-4 py-2 text-sm font-bold rounded-lg md:rounded-b-none md:rounded-t-lg transition-all ${activeLedger === 'travel' ? 'bg-white border md:border-b-0 border-gray-200 text-blue-600 shadow-sm md:shadow-none' : 'bg-gray-100 text-gray-500'}`}>Travel</button>
-                </div>
-            </div>
-
-            <div className="bg-white border border-gray-200 rounded-lg md:rounded-tr-lg md:rounded-tl-none shadow-sm flex flex-col flex-1 min-h-0">
-                {!auditReport ? (
-                    <>
-                        {/* AUDIT INSTRUCTIONS (RESTORED) */}
-                        <div className="p-4 bg-blue-50 border-b border-blue-100 text-sm">
-                            <h4 className="font-bold text-blue-800 flex items-center gap-2 mb-1"><Briefcase size={16} /> AUDITOR INSTRUCTIONS</h4>
-                            <ul className="list-disc list-inside text-blue-700 space-y-1">
-                                <li>Policy 1: Expenses over <strong>$5,000</strong> require Executive (L1) approval.</li>
-                                <li>Policy 2: <strong>Sector 7</strong> transactions are currently frozen.</li>
-                                <li><strong>Task:</strong> Select any transactions that violate these policies to flag them.</li>
-                            </ul>
-                        </div>
-
-                        <div className="flex-1 overflow-auto">
-                            <table className="w-full text-sm text-left whitespace-nowrap">
-                                <thead className="bg-gray-100 text-gray-600 uppercase text-xs sticky top-0 z-10 shadow-sm">
-                                    <tr><th className="p-3">Select</th><th className="p-3">ID</th><th className="p-3">Date</th><th className="p-3">Description</th><th className="p-3">Vendor</th><th className="p-3 text-right">Amount</th><th className="p-3">Auth. ID</th></tr>
-                                </thead>
-                                <tbody className="divide-y">
-                                    {LEDGER_DATA.filter(r => (activeLedger === 'procurement' ? r.id.startsWith('P') : r.id.startsWith('T'))).map((row) => (
-                                        <tr key={row.id} className={`hover:bg-blue-50 transition-colors ${selectedTx.includes(row.id) ? 'bg-red-50' : ''}`}>
-                                            <td className="p-3 text-center"><input type="checkbox" checked={selectedTx.includes(row.id)} onChange={() => toggleSelection(row.id)} className="cursor-pointer w-4 h-4" /></td>
-                                            <td className="p-3 font-mono text-gray-500 text-xs">{row.id}</td>
-                                            <td className="p-3">{row.date}</td>
-                                            <td className="p-3 font-medium">{row.desc}</td>
-                                            <td className="p-3">{row.vendor}</td>
-                                            <td className="p-3 text-right font-mono">${row.cost.toFixed(2)}</td>
-                                            <td className="p-3 font-mono text-xs">{user.role === 'AUDITOR_TEMP' ? 'ID: ****' : `ID: ${row.auth}`}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                        <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center shrink-0">
-                            <span className="text-xs text-gray-500">{selectedTx.length} flagged</span>
-                            <button onClick={submitAudit} disabled={selectedTx.length === 0} className="bg-red-700 text-white px-6 py-2 rounded text-sm font-bold hover:bg-red-800 disabled:opacity-50 transition-colors">Submit Report</button>
-                        </div>
-                    </>
-                ) : (
-                    <div className="p-8 text-center animate-in zoom-in flex flex-col items-center justify-center h-full">
-                        <div className="flex justify-center mb-4"><FileWarning className={auditReport.status === 'SUCCESS' ? "text-green-600" : "text-red-600"} size={64} /></div>
-                        <h3 className="text-2xl font-bold mb-2">{auditReport.status === 'SUCCESS' ? 'FRAUD CONFIRMED' : 'REPORT REJECTED'}</h3>
-                        <p className="text-gray-600 mb-6 max-w-md">{auditReport.message}</p>
-                        {auditReport.status === 'SUCCESS' && (
-                            <div className="bg-gray-100 p-4 rounded border max-w-md mx-auto text-left w-full">
-                                <p className="font-bold">Suspect: {auditReport.suspect}</p>
-                                <p className="font-mono text-sm">ID: <span className="bg-yellow-200 px-1">{auditReport.suspectId}</span></p>
-                                {user.role === 'AUDITOR_TEMP' && <p className="text-xs text-red-500 mt-2 font-bold">Badge ID Masked (L1 Required)</p>}
-                            </div>
-                        )}
-                        <button onClick={() => setAuditReport(null)} className="mt-6 text-blue-600 underline text-sm">Close Report</button>
+                <div className="space-y-3">
+                    <div className="text-sm text-gray-600 flex items-start gap-2">
+                        <div className="mt-1 w-2 h-2 rounded-full bg-blue-400 shrink-0"></div>
+                        <span>Some directories require elevated clearance.</span>
                     </div>
-                )}
+                </div>
+            </div>
+
+            {/* 4. QUICK ACTIONS */}
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 md:col-span-3">
+                <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2"><Zap size={18} /> Quick Actions</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <button onClick={() => setActiveTab('messages')} className="p-4 bg-gray-50 hover:bg-blue-50 border border-gray-200 rounded-lg flex items-center gap-3 transition-colors">
+                        <Mail size={24} className="text-blue-600" />
+                        <div className="text-left">
+                            <span className="block text-sm font-bold">Inbox</span>
+                            <span className="text-[10px] text-gray-500 uppercase">View correspondence</span>
+                        </div>
+                    </button>
+                    <button onClick={() => setActiveTab('finance')} className="p-4 bg-gray-50 hover:bg-green-50 border border-gray-200 rounded-lg flex items-center gap-3 transition-colors">
+                        <DollarSign size={24} className="text-green-600" />
+                        <div className="text-left">
+                            <span className="block text-sm font-bold">Finance Audit</span>
+                            <span className="text-[10px] text-gray-500 uppercase">Active processing</span>
+                        </div>
+                    </button>
+                    <button onClick={handleLogout} className="p-4 bg-gray-50 hover:bg-red-50 border border-gray-200 rounded-lg flex items-center gap-3 transition-colors">
+                        <LogOut size={24} className="text-red-600" />
+                        <div className="text-left">
+                            <span className="block text-sm font-bold">Logout</span>
+                            <span className="text-[10px] text-gray-500 uppercase">End session</span>
+                        </div>
+                    </button>
+                </div>
             </div>
         </div>
     );
+
+    const [isPolicyOpen, setIsPolicyOpen] = useState(false);
+
+    const renderFinance = () => {
+        const pastReports = Array.from({ length: 15 }, (_, i) => ({
+            id: `R-${7720 - i}`,
+            date: `2026-05-${12 - Math.floor(i / 3)}`,
+            cat: ['Travel', 'Procurement', 'Software', 'Services', 'Facilities'][i % 5],
+            status: 'APPROVED'
+        }));
+
+        const categories = activePacket ? activePacket.categories : [];
+        const filteredData = LEDGER_DATA.filter(t => t.category === activeLedger);
+
+        return (
+            <div className="p-4 md:p-6 h-full flex flex-col animate-in fade-in overflow-hidden">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4 shrink-0">
+                    <div>
+                        <h2 className="text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-2"><DollarSign className="text-green-600" /> Finance Audit</h2>
+                        <p className="text-sm text-gray-500">
+                            {activePacket ? `Active Packet: ${activePacket.name}` : "Access via Expenditure Packet in Inbox"}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-0">
+                    {/* A. PREVIOUSLY SUBMITTED REPORTS */}
+                    <div className="lg:col-span-1 bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col overflow-hidden">
+                        <div className="p-3 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                            <Clock size={14} /> History (ReadOnly)
+                        </div>
+                        <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+                            {pastReports.map(report => (
+                                <div key={report.id} className="p-3 opacity-40">
+                                    <div className="flex justify-between text-[10px] font-mono mb-1">
+                                        <span>{report.id}</span>
+                                        <span>{report.date}</span>
+                                    </div>
+                                    <div className="flex justify-between text-[10px]">
+                                        <span className="text-gray-600 font-medium">{report.cat}</span>
+                                        <span className="text-green-700 font-bold uppercase">{report.status}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* B. CURRENT PENDING REVIEW */}
+                    <div className="lg:col-span-3 flex flex-col gap-4 min-h-0">
+                        {/* Policy Panel */}
+                        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden shrink-0">
+                            <button
+                                onClick={() => setIsPolicyOpen(!isPolicyOpen)}
+                                className="w-full p-3 flex justify-between items-center hover:bg-gray-50 transition-colors"
+                            >
+                                <span className="font-bold text-gray-700 flex items-center gap-2 text-xs uppercase tracking-wider"><Briefcase size={14} /> Expense Policy Summary</span>
+                                {isPolicyOpen ? <ChevronLeft size={14} className="-rotate-90" /> : <ChevronRight size={14} className="rotate-90" />}
+                            </button>
+                            {isPolicyOpen && (
+                                <div className="px-4 pb-4 animate-in slide-in-from-top-2">
+                                    <div className="p-3 bg-gray-50 border border-gray-200 rounded text-[11px] text-gray-600 leading-relaxed space-y-2">
+                                        <p>- Expenses over $5,000 require executive authorization</p>
+                                        <p>- All expenses require documented request and verification</p>
+                                        <p>- Direct authorization without request is prohibited</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Audit Interface */}
+                        <div className="bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
+                            {!activePacket ? (
+                                <div className="p-12 text-center h-full flex flex-col items-center justify-center text-gray-400">
+                                    <FileText size={48} className="mb-4 opacity-20" />
+                                    <p className="text-sm">Please open an <span className="font-bold text-gray-500 uppercase">Expenditure Packet</span> from the Inbox to begin your review.</p>
+                                </div>
+                            ) : !auditReport ? (
+                                <>
+                                    {/* Category Tabs */}
+                                    <div className="flex overflow-x-auto bg-gray-50 border-b border-gray-200 no-scrollbar">
+                                        {categories.map(cat => (
+                                            <button
+                                                key={cat}
+                                                onClick={() => setActiveLedger(cat)}
+                                                className={`px-4 py-3 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap transition-colors border-b-2 ${activeLedger === cat ? 'bg-white border-blue-900 text-blue-900' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                                            >
+                                                {cat}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="flex-1 overflow-auto">
+                                        <table className="w-full text-sm text-left whitespace-nowrap border-collapse">
+                                            <thead className="bg-white text-gray-400 uppercase text-[10px] font-bold sticky top-0 z-10 shadow-sm border-b tracking-tighter">
+                                                <tr>
+                                                    <th className="p-3 w-8"></th>
+                                                    <th className="p-3">ID / Date</th>
+                                                    <th className="p-3">Vendor / Desc</th>
+                                                    <th className="p-3">Amount</th>
+                                                    <th className="p-3">Req By</th>
+                                                    <th className="p-3">Ver By</th>
+                                                    <th className="p-3">Auth By</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100 font-sans">
+                                                {filteredData.map((row) => (
+                                                    <tr key={row.transactionId} className={`hover:bg-blue-50/30 transition-colors ${selectedTx.includes(row.transactionId) ? 'bg-blue-50' : ''}`}>
+                                                        <td className="p-3 text-center">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedTx.includes(row.transactionId)}
+                                                                onChange={() => toggleSelection(row.transactionId)}
+                                                                className="cursor-pointer w-3.5 h-3.5 rounded text-blue-900 border-gray-300 focus:ring-blue-900"
+                                                            />
+                                                        </td>
+                                                        <td className="p-3">
+                                                            <div className="font-mono text-[10px] text-gray-700">{row.transactionId}</div>
+                                                            <div className="text-[10px] text-gray-400">{row.date}</div>
+                                                        </td>
+                                                        <td className="p-3">
+                                                            <div className="font-medium text-gray-800 text-xs">{row.vendor}</div>
+                                                            <div className="text-[10px] text-gray-500 italic truncate max-w-[150px]">{row.description}</div>
+                                                        </td>
+                                                        <td className="p-3 text-right font-mono font-bold text-gray-700 text-xs">
+                                                            ${row.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                        </td>
+                                                        <td className="p-3 text-[10px] font-mono text-gray-600">
+                                                            {row.requestedBy}
+                                                        </td>
+                                                        <td className="p-3 text-[10px] text-gray-500 uppercase">
+                                                            {row.verifiedBy}
+                                                        </td>
+                                                        <td className="p-3 text-[10px] font-mono text-gray-600 font-bold">
+                                                            {row.authorizedBy}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div className="p-3 border-t border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
+                                        <span className="text-[10px] text-gray-500 font-medium">{selectedTx.length} discrepancies flagged</span>
+                                        <button
+                                            onClick={submitAudit}
+                                            disabled={selectedTx.length === 0}
+                                            className="bg-blue-900 text-white px-6 py-1.5 rounded text-xs font-bold hover:bg-blue-800 disabled:opacity-30 disabled:grayscale transition-all shadow-sm uppercase tracking-widest"
+                                        >
+                                            Submit Report
+                                        </button>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="p-12 text-center animate-in zoom-in h-full flex flex-col items-center justify-center">
+                                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${auditReport.status === 'SUCCESS' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                                        {auditReport.status === 'SUCCESS' ? <CheckSquare size={32} /> : <AlertTriangle size={32} />}
+                                    </div>
+                                    <h3 className="text-xl font-bold text-gray-800 mb-2 font-mono uppercase tracking-tight">
+                                        {auditReport.status === 'SUCCESS' ? 'Review Confirmed' : 'Submission Rejected'}
+                                    </h3>
+                                    <p className="text-gray-500 text-xs mb-8 leading-relaxed max-w-sm">
+                                        {auditReport.message}
+                                    </p>
+                                    <button
+                                        onClick={() => setAuditReport(null)}
+                                        className="text-blue-900 font-bold text-[10px] uppercase tracking-widest hover:underline py-2 px-6 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+                                    >
+                                        Return to Audit Queue
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
     const renderMessages = () => {
         const isOverseer = user.role === 'OVERSEER';
@@ -410,9 +603,27 @@ const CorporatePortal = () => {
                             </div>
                             {selectedMessage.deleted && <div className="mt-2 text-xs bg-red-100 text-red-800 px-2 py-1 rounded inline-block font-bold">RECOVERED DELETED ITEM</div>}
                         </div>
-                        <div className="prose text-gray-700 whitespace-pre-wrap leading-relaxed text-sm md:text-base">
+                        <div className="prose text-gray-700 whitespace-pre-wrap leading-relaxed text-sm md:text-base border-b pb-6 mb-6">
                             {selectedMessage.body}
                         </div>
+
+                        {selectedMessage.attachment && (
+                            <div className="bg-gray-50 border border-gray-200 rounded p-4 flex items-center justify-between group">
+                                <div className="flex items-center gap-3">
+                                    <FileSpreadsheet className="text-green-600" size={24} />
+                                    <div>
+                                        <p className="text-sm font-bold text-gray-800">{selectedMessage.attachment.name}</p>
+                                        <p className="text-[10px] text-gray-500 uppercase tracking-widest">{selectedMessage.attachment.type}</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => loadPacket(selectedMessage.attachment)}
+                                    className="bg-blue-900 text-white px-4 py-1.5 rounded text-xs font-bold hover:bg-blue-800 shadow-sm"
+                                >
+                                    OPEN ATTACHMENT
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             );
@@ -685,54 +896,81 @@ const CorporatePortal = () => {
             <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans relative overflow-hidden">
                 <div className="max-w-4xl w-full bg-white rounded-xl shadow-2xl flex flex-col md:flex-row overflow-hidden min-h-[500px]">
                     <div className="md:w-1/2 p-10 flex flex-col justify-center bg-gray-50 relative">
-                        <div className="absolute -top-2 right-10 transform rotate-3 shadow-lg bg-yellow-200 text-yellow-900 p-3 w-40 font-handwriting text-sm border-t-[12px] border-yellow-400 z-10">
-                            <p className="font-bold text-center border-b border-yellow-800/20 pb-1 mb-1">AUDIT TEAM</p>
-                            <p className="leading-tight">Use temp login for today's review.</p>
-                            <p className="mt-2 font-mono bg-white/50 text-center text-lg font-bold tracking-widest">AUDIT-04</p>
-                        </div>
+                        <div className="space-y-8">
+                            {/* --- INTERNAL LOGIN --- */}
+                            <div className="relative border-b pb-8">
+                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Internal Employee Login</h3>
+                                <form onSubmit={handleLogin} className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">User ID</label>
+                                        <input className="w-full border border-gray-300 p-2.5 rounded focus:ring-2 focus:ring-blue-900 outline-none text-sm" placeholder="ID-XXXX" value={loginId} onChange={(e) => setLoginId(e.target.value)} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Password</label>
+                                        <div className="relative">
+                                            <input type={showPass ? "text" : "password"} className="w-full border border-gray-300 p-2.5 rounded focus:ring-2 focus:ring-blue-900 outline-none text-sm" placeholder="••••••••" value={loginPass} onChange={(e) => setLoginPass(e.target.value)} />
+                                            <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-3 text-gray-400 hover:text-gray-600">{showPass ? <EyeOff size={16} /> : <Eye size={16} />}</button>
+                                        </div>
+                                    </div>
+                                    {loginError && <p className="text-xs text-red-600 font-bold">{loginError}</p>}
+                                    <button className="w-full bg-blue-900 text-white font-bold py-2.5 rounded hover:bg-blue-800 transition-colors flex items-center justify-center gap-2 text-sm"><Lock size={14} /> ACCESS PORTAL</button>
+                                </form>
 
-                        <div className="mb-8">
-                            <div className="flex items-center gap-2 mb-1">
-                                <Building2 className="text-blue-900" size={28} />
-                                <h1 className="text-xl font-bold text-gray-800 tracking-wider">OMNICORP</h1>
                             </div>
-                            <p className="text-xs text-gray-500 uppercase tracking-widest">Internal Secure Gateway</p>
-                        </div>
 
-                        <form onSubmit={handleLogin} className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">User ID</label>
-                                <input className="w-full border border-gray-300 p-3 rounded focus:ring-2 focus:ring-blue-900 outline-none" placeholder="ID-XXXX" value={loginId} onChange={(e) => setLoginId(e.target.value)} />
+                            {/* --- EXTERNAL / SSO LOGIN --- */}
+                            <div className="relative pt-2">
+                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">External / Contractor</h3>
+                                <button
+                                    onClick={handleSSOLogin}
+                                    className="w-full bg-white border-2 border-blue-900 text-blue-900 font-bold py-2.5 rounded hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 text-sm"
+                                >
+                                    <Network size={16} /> LOGIN WITH SSO
+                                </button>
+
                             </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Password</label>
-                                <div className="relative">
-                                    <input type={showPass ? "text" : "password"} className="w-full border border-gray-300 p-3 rounded focus:ring-2 focus:ring-blue-900 outline-none" placeholder="••••••••" value={loginPass} onChange={(e) => setLoginPass(e.target.value)} />
-                                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600">{showPass ? <EyeOff size={18} /> : <Eye size={18} />}</button>
-                                </div>
-                            </div>
-                            {loginError && <p className="text-xs text-red-600 font-bold">{loginError}</p>}
-                            <button className="w-full bg-blue-900 text-white font-bold py-3 rounded hover:bg-blue-800 transition-colors flex items-center justify-center gap-2"><Lock size={16} /> ACCESS PORTAL</button>
-                        </form>
+                        </div>
 
                         {/* Password Reset Notice */}
-                        <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="mt-12 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                             <div className="flex items-start gap-2">
-                                <HelpCircle size={16} className="text-blue-600 mt-0.5 shrink-0" />
-                                <div className="text-xs text-blue-800">
-                                    <p className="font-bold mb-1">Password Reset Notice</p>
-                                    <p className="text-blue-600">All employee passwords have been reset to the OmniCorp standard format:</p>
-                                    <p className="font-mono bg-white/50 px-2 py-1 mt-1 rounded text-center"><span className="font-bold">Omni</span> + <span className="font-bold">Your ID</span></p>
-                                    <p className="text-blue-500 mt-1 italic">Example: ID 1234 → Password: Omni1234</p>
+                                <HelpCircle size={14} className="text-blue-600 mt-0.5 shrink-0" />
+                                <div className="text-[10px] text-blue-800">
+                                    <p className="font-bold mb-1 uppercase tracking-tighter">Password Reset Notice</p>
+                                    <p className="text-blue-600">Employee passwords have been reset to: <span className="font-mono font-bold">Omni</span> + <span className="font-mono font-bold">ID</span></p>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div className="md:w-1/2 bg-blue-900 p-10 text-white flex flex-col justify-between relative">
                         <div className="relative z-10">
-                            <h2 className="text-3xl font-light mb-4">Secure.<br />Efficient.<br /><span className="font-bold">Omnipresent.</span></h2>
-                            <div className="w-10 h-1 bg-blue-400 mb-4"></div>
-                            <p className="text-sm text-blue-200 opacity-80">Unauthorized access to this system is a Class A Felony.</p>
+                            <h2 className="text-3xl font-light mb-4 text-white">Secure.<br />Efficient.<br /><span className="font-bold">Omnipresent.</span></h2>
+                            <div className="w-10 h-1 bg-blue-400 mb-8"></div>
+
+                            {/* Administrative Bulletins */}
+                            <div className="space-y-4 mb-12">
+                                <h3 className="text-xs font-bold text-blue-300 uppercase tracking-widest flex items-center gap-2">
+                                    <Bell size={14} /> Administrative Bulletins
+                                </h3>
+
+                                <div className="bg-blue-800/40 p-3 rounded border border-blue-700/50 backdrop-blur-sm">
+                                    <div className="flex justify-between items-start mb-1">
+                                        <span className="text-[10px] font-bold text-blue-200 uppercase">Internal Finance</span>
+                                        <span className="text-[9px] text-blue-400 font-mono">22.01.26</span>
+                                    </div>
+                                    <p className="text-xs text-white leading-relaxed">Temp audit access for today. Final batch should already be queued.</p>
+                                </div>
+
+                                <div className="bg-blue-800/40 p-3 rounded border border-blue-700/50 backdrop-blur-sm">
+                                    <div className="flex justify-between items-start mb-1">
+                                        <span className="text-[10px] font-bold text-blue-200 uppercase">IT Infrastructure</span>
+                                        <span className="text-[9px] text-blue-400 font-mono">22.01.26</span>
+                                    </div>
+                                    <p className="text-xs text-white leading-relaxed">External audits use SSO authentication. Do not issue temporary passwords.</p>
+                                </div>
+                            </div>
+
+                            <p className="text-[10px] text-blue-400 opacity-80 uppercase tracking-tighter">Unauthorized access to this system is a Class A Felony.</p>
                         </div>
                         <div className="flex gap-3 opacity-30"><Globe /> <Server /> <Shield /></div>
                     </div>
@@ -752,7 +990,7 @@ const CorporatePortal = () => {
 
     return (
         <div className={`min-h-screen font-sans flex flex-col transition-colors duration-1000 ${theme}`}>
-            <header className={`${headerTheme} border-b shadow-sm sticky top-0 z-30 h-16 flex items-center justify-between px-4 md:px-6`}>
+            <header className={`${headerTheme} border-b shadow-sm sticky top-0 z-50 h-16 flex items-center justify-between px-4 md:px-6 shrink-0`}>
                 <div className="flex items-center gap-4">
                     <button className="md:hidden p-1" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}><Menu size={24} /></button>
                     <div className="bg-blue-900 p-1.5 rounded text-white hidden sm:block"><Building2 size={20} /></div>
@@ -773,10 +1011,10 @@ const CorporatePortal = () => {
             {/* NOTIFICATIONS */}
             <div className="fixed top-20 right-4 md:right-6 z-50 flex flex-col gap-2 w-full md:w-80 pointer-events-none">
                 {notifications.map(n => (
-                    <div key={n.id} className="bg-white border-l-4 border-blue-600 shadow-lg p-4 rounded pointer-events-auto animate-in slide-in-from-right-10 fade-in duration-300 relative group mx-2 md:mx-0">
-                        <button onClick={() => removeNotification(n.id)} className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 md:opacity-0 md:group-hover:opacity-100 transition-opacity"><X size={14} /></button>
-                        <h4 className="font-bold text-sm text-gray-800 mb-1 pr-4">{n.title}</h4>
-                        <p className="text-xs text-gray-600">{n.msg}</p>
+                    <div key={n.id} className={`${n.isChat ? 'bg-indigo-600 text-white' : 'bg-white text-gray-800'} border-l-4 ${n.isChat ? 'border-indigo-400' : 'border-blue-600'} shadow-lg p-4 rounded pointer-events-auto animate-in slide-in-from-right-10 fade-in duration-300 relative group mx-2 md:mx-0`}>
+                        <button onClick={() => removeNotification(n.id)} className={`absolute top-2 right-2 ${n.isChat ? 'text-indigo-200 hover:text-white' : 'text-gray-400 hover:text-gray-600'} md:opacity-0 md:group-hover:opacity-100 transition-opacity`}><X size={14} /></button>
+                        <h4 className={`font-bold text-sm mb-1 pr-4 ${n.isChat ? 'text-indigo-100' : 'text-gray-800'}`}>{n.title}</h4>
+                        <p className={`text-xs ${n.isChat ? 'text-white' : 'text-gray-600'}`}>{n.msg}</p>
                     </div>
                 ))}
             </div>
@@ -789,8 +1027,8 @@ const CorporatePortal = () => {
 
                 {/* SIDEBAR */}
                 <aside className={`
-          fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out
-          md:relative md:translate-x-0
+          fixed md:relative inset-y-0 left-0 md:inset-y-auto z-[60] md:z-30 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out
+          md:translate-x-0
           ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
         `}>
                     <SidebarContent
@@ -829,25 +1067,15 @@ const CorporatePortal = () => {
 const SidebarContent = ({ user, activeTab, handleTabChange }) => (
     <div className="p-4 space-y-1 h-full overflow-y-auto">
         <NavBtn label="Dashboard" icon={<Activity />} active={activeTab === 'dashboard'} onClick={() => handleTabChange('dashboard')} />
-        <NavBtn label="Messages" icon={<Mail />} active={activeTab === 'messages'} onClick={() => handleTabChange('messages')} />
-        {user.permissions.includes('finance') && <NavBtn label="Finance Audit" icon={<DollarSign />} active={activeTab === 'finance'} onClick={() => handleTabChange('finance')} />}
-        {user.permissions.includes('directory') ? (
-            <NavBtn label="Directory" icon={<Users />} active={activeTab === 'directory'} onClick={() => handleTabChange('directory')} />
-        ) : (
-            <div className="flex items-center gap-3 px-4 py-3 text-sm text-gray-400 cursor-not-allowed"><Lock size={18} /> Directory</div>
-        )}
-        {user.permissions.includes('terminal') && <NavBtn label="Sys Terminal" icon={<Terminal />} active={activeTab === 'terminal'} onClick={() => handleTabChange('terminal')} />}
-        {user.permissions.includes('documents') && <NavBtn label="Secure Archives" icon={<Folder />} active={activeTab === 'documents'} onClick={() => handleTabChange('documents')} />}
-        {user.permissions.includes('infrastructure') && <NavBtn label="Infrastructure" icon={<Server />} active={activeTab === 'infrastructure'} onClick={() => handleTabChange('infrastructure')} />}
-        {user.permissions.includes('history') && <NavBtn label="History" icon={<Building2 />} active={activeTab === 'history'} onClick={() => handleTabChange('history')} />}
+        <NavBtn label="Inbox" icon={<Mail />} active={activeTab === 'messages'} onClick={() => handleTabChange('messages')} />
+        <NavBtn label="Finance Audit" icon={<DollarSign />} active={activeTab === 'finance'} onClick={() => handleTabChange('finance')} />
 
+        {/* Other sections removed for Act I: Normality */}
         <div className="pt-4 mt-4 border-t border-gray-100">
-            <p className="px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Restricted Zones</p>
-            {user.permissions.includes('restricted') ? (
-                <button onClick={() => handleTabChange('restricted')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded transition-colors ${activeTab === 'restricted' ? 'bg-red-50 text-red-600' : 'text-gray-500 hover:bg-gray-50'}`}><Skull size={18} /> PROJECT OMEGA</button>
-            ) : (
-                <div className="flex items-center gap-3 px-4 py-3 text-sm text-gray-300"><Lock size={18} /> PROJECT OMEGA</div>
-            )}
+            <p className="px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Notice</p>
+            <div className="flex items-center gap-3 px-4 py-3 text-xs text-blue-600 italic">
+                Maintenance window scheduled for 22:00.
+            </div>
         </div>
     </div>
 );
