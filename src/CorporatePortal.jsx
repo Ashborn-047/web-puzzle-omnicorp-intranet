@@ -36,6 +36,7 @@ const CorporatePortal = () => {
     const [activeLedger, setActiveLedger] = useState('Procurement');
     const [directoryFilter, setDirectoryFilter] = useState('ALL');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
     // Sub-Navigation States
     const [selectedMessage, setSelectedMessage] = useState(null);
@@ -453,21 +454,43 @@ const CorporatePortal = () => {
 
                     {/* B. CURRENT PENDING REVIEW */}
                     <div className="lg:col-span-3 flex flex-col gap-4 min-h-0">
-                        {/* Policy Panel */}
-                        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden shrink-0">
-                            <button
-                                onClick={() => setIsPolicyOpen(!isPolicyOpen)}
-                                className="w-full p-3 flex justify-between items-center hover:bg-gray-50 transition-colors"
-                            >
-                                <span className="font-bold text-gray-700 flex items-center gap-2 text-xs uppercase tracking-wider"><Briefcase size={14} /> Expense Policy Summary</span>
-                                {isPolicyOpen ? <ChevronLeft size={14} className="-rotate-90" /> : <ChevronRight size={14} className="rotate-90" />}
-                            </button>
+                        {/* Policy Panel - NEW PREMIUM DESIGN */}
+                        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden shrink-0">
+                            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-blue-900 flex items-center justify-center text-white shadow-sm">
+                                        <Briefcase size={16} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Authorization</h3>
+                                        <p className="text-sm font-bold text-gray-800">Expense Policy Summary</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setIsPolicyOpen(!isPolicyOpen)}
+                                    className="p-2 hover:bg-white rounded-full transition-colors text-gray-400 hover:text-blue-600"
+                                >
+                                    {isPolicyOpen ? <ChevronLeft size={18} className="-rotate-90" /> : <ChevronRight size={18} className="rotate-90" />}
+                                </button>
+                            </div>
                             {isPolicyOpen && (
-                                <div className="px-4 pb-4 animate-in slide-in-from-top-2">
-                                    <div className="p-3 bg-gray-50 border border-gray-200 rounded text-[11px] text-gray-600 leading-relaxed space-y-2">
-                                        <p>- Expenses over $5,000 require executive authorization</p>
-                                        <p>- All expenses require documented request and verification</p>
-                                        <p>- Direct authorization without request is prohibited</p>
+                                <div className="p-6 bg-white animate-in slide-in-from-top-4 fade-in duration-300">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        {[
+                                            { title: "Budget Limit", body: "Expenses over $5,000 require executive authorization", icon: <DollarSign size={14} /> },
+                                            { title: "Documentation", body: "All expenses require documented request and verification", icon: <FileText size={14} /> },
+                                            { title: "Workflow", body: "Direct authorization without request is prohibited", icon: <Activity size={14} /> }
+                                        ].map((item, idx) => (
+                                            <div key={idx} className="flex gap-4">
+                                                <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                                                    {item.icon}
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-blue-900 uppercase tracking-tight mb-1">{item.title}</p>
+                                                    <p className="text-xs text-gray-600 leading-relaxed font-medium">{item.body}</p>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             )}
@@ -510,34 +533,42 @@ const CorporatePortal = () => {
                                             </thead>
                                             <tbody className="divide-y divide-gray-100 font-sans">
                                                 {filteredData.map((row) => (
-                                                    <tr key={row.transactionId} className={`hover:bg-blue-50/30 transition-colors ${selectedTx.includes(row.transactionId) ? 'bg-blue-50' : ''}`}>
-                                                        <td className="p-3 text-center">
+                                                    <tr key={row.transactionId} className={`hover:bg-blue-50/30 transition-colors group ${selectedTx.includes(row.transactionId) ? 'bg-blue-50/50' : ''}`}>
+                                                        <td className="p-4 text-center">
                                                             <input
                                                                 type="checkbox"
                                                                 checked={selectedTx.includes(row.transactionId)}
                                                                 onChange={() => toggleSelection(row.transactionId)}
-                                                                className="cursor-pointer w-3.5 h-3.5 rounded text-blue-900 border-gray-300 focus:ring-blue-900"
+                                                                className="cursor-pointer w-4 h-4 rounded text-blue-900 border-gray-300 focus:ring-blue-900 transition-all scale-110"
                                                             />
                                                         </td>
-                                                        <td className="p-3">
-                                                            <div className="font-mono text-[10px] text-gray-700">{row.transactionId}</div>
-                                                            <div className="text-[10px] text-gray-400">{row.date}</div>
+                                                        <td className="p-4">
+                                                            <div className="font-mono text-xs font-bold text-gray-900 mb-0.5 tracking-tight">{row.transactionId}</div>
+                                                            <div className="text-[11px] text-gray-400 font-medium">{row.date}</div>
                                                         </td>
-                                                        <td className="p-3">
-                                                            <div className="font-medium text-gray-800 text-xs">{row.vendor}</div>
-                                                            <div className="text-[10px] text-gray-500 italic truncate max-w-[150px]">{row.description}</div>
+                                                        <td className="p-4">
+                                                            <div className="font-bold text-gray-900 text-sm mb-0.5 tracking-tight leading-none">{row.vendor}</div>
+                                                            <div className="text-[11px] text-gray-500 font-medium italic truncate max-w-[200px]">{row.description}</div>
                                                         </td>
-                                                        <td className="p-3 text-right font-mono font-bold text-gray-700 text-xs">
-                                                            ${row.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                        <td className="p-4 text-right">
+                                                            <div className="font-mono font-black text-gray-900 text-sm">
+                                                                ${row.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                            </div>
                                                         </td>
-                                                        <td className="p-3 text-[10px] font-mono text-gray-600">
-                                                            {row.requestedBy}
+                                                        <td className="p-4">
+                                                            <div className="px-2 py-1 bg-gray-50 border border-gray-100 rounded text-[10px] font-mono text-gray-600 w-fit">
+                                                                {row.requestedBy}
+                                                            </div>
                                                         </td>
-                                                        <td className="p-3 text-[10px] text-gray-500 uppercase">
-                                                            {row.verifiedBy}
+                                                        <td className="p-4">
+                                                            <div className="px-2 py-1 bg-gray-50 border border-gray-100 rounded text-[10px] text-gray-500 uppercase font-bold w-fit tracking-tighter">
+                                                                {row.verifiedBy}
+                                                            </div>
                                                         </td>
-                                                        <td className="p-3 text-[10px] font-mono text-gray-600 font-bold">
-                                                            {row.authorizedBy}
+                                                        <td className="p-4">
+                                                            <div className="px-2 py-1 bg-blue-50 border border-blue-100 rounded text-[10px] font-mono text-blue-900 font-bold w-fit">
+                                                                {row.authorizedBy}
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -1027,14 +1058,17 @@ const CorporatePortal = () => {
 
                 {/* SIDEBAR */}
                 <aside className={`
-          fixed md:relative inset-y-0 left-0 md:inset-y-auto z-[60] md:z-30 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out
+          fixed md:relative inset-y-0 left-0 md:inset-y-auto z-[60] md:z-30 
+          ${isSidebarCollapsed ? 'w-16' : 'w-64'} 
+          bg-white border-r border-gray-200 transform transition-all duration-300 ease-in-out
           md:translate-x-0
-          ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+          ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}>
                     <SidebarContent
-                        user={user}
                         activeTab={activeTab}
                         handleTabChange={handleTabChange}
+                        isCollapsed={isSidebarCollapsed}
+                        setIsCollapsed={setIsSidebarCollapsed}
                     />
                 </aside>
 
@@ -1064,26 +1098,91 @@ const CorporatePortal = () => {
 };
 
 // --- SUB COMPONENTS ---
-const SidebarContent = ({ user, activeTab, handleTabChange }) => (
-    <div className="p-4 space-y-1 h-full overflow-y-auto">
-        <NavBtn label="Dashboard" icon={<Activity />} active={activeTab === 'dashboard'} onClick={() => handleTabChange('dashboard')} />
-        <NavBtn label="Inbox" icon={<Mail />} active={activeTab === 'messages'} onClick={() => handleTabChange('messages')} />
-        <NavBtn label="Finance Audit" icon={<DollarSign />} active={activeTab === 'finance'} onClick={() => handleTabChange('finance')} />
+const SidebarContent = ({ activeTab, handleTabChange, isCollapsed, setIsCollapsed }) => (
+    <div className="flex flex-col h-full bg-white relative">
+        {/* Toggle Button for Desktop */}
+        <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="hidden md:flex absolute -right-3 top-6 w-6 h-6 bg-white border border-gray-200 rounded-full items-center justify-center shadow-sm z-10 hover:bg-gray-50 text-gray-400 hover:text-blue-600 transition-colors"
+        >
+            {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
 
-        {/* Other sections removed for Act I: Normality */}
-        <div className="pt-4 mt-4 border-t border-gray-100">
-            <p className="px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Notice</p>
-            <div className="flex items-center gap-3 px-4 py-3 text-xs text-blue-600 italic">
-                Maintenance window scheduled for 22:00.
+        <div className={`p-4 ${isCollapsed ? 'px-2' : 'px-4'} flex-1 space-y-2 overflow-y-auto no-scrollbar pt-10`}>
+            <NavBtn
+                label="Dashboard"
+                icon={<Activity />}
+                active={activeTab === 'dashboard'}
+                onClick={() => handleTabChange('dashboard')}
+                isCollapsed={isCollapsed}
+            />
+            <NavBtn
+                label="Inbox"
+                icon={<Mail />}
+                active={activeTab === 'messages'}
+                onClick={() => handleTabChange('messages')}
+                isCollapsed={isCollapsed}
+            />
+            <NavBtn
+                label="Finance Audit"
+                icon={<DollarSign />}
+                active={activeTab === 'finance'}
+                onClick={() => handleTabChange('finance')}
+                isCollapsed={isCollapsed}
+            />
+
+            <div className={`pt-6 mt-6 border-t border-gray-100 ${isCollapsed ? 'items-center flex flex-col' : ''}`}>
+                {!isCollapsed && <p className="px-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Support</p>}
+                <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : 'px-4'} py-2 text-blue-600/50`}>
+                    <HelpCircle size={isCollapsed ? 20 : 16} />
+                    {!isCollapsed && <span className="text-xs font-medium">Help Center</span>}
+                </div>
             </div>
         </div>
+
+        {!isCollapsed && (
+            <div className="p-4 bg-gray-50/50 border-t border-gray-100">
+                <div className="bg-blue-900/5 p-3 rounded-lg border border-blue-900/10">
+                    <p className="text-[10px] font-bold text-blue-900 uppercase tracking-tighter mb-1">System Status</p>
+                    <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                        <span className="text-[10px] text-blue-800 font-medium tracking-tight whitespace-nowrap">Node 06-A Online</span>
+                    </div>
+                </div>
+            </div>
+        )}
     </div>
 );
 
-const NavBtn = ({ label, icon, active, onClick }) => (
-    <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded transition-all ${active ? 'bg-blue-50 text-blue-700 border-r-4 border-blue-600' : 'text-gray-600 hover:bg-gray-100'}`}>
-        {React.cloneElement(icon, { size: 18 })}
-        {label}
+const NavBtn = ({ label, icon, active, onClick, isCollapsed }) => (
+    <button
+        onClick={onClick}
+        className={`
+            w-full flex items-center group transition-all duration-200 rounded-lg relative
+            ${isCollapsed ? 'justify-center py-3' : 'px-4 py-3 gap-3'}
+            ${active ? 'bg-blue-50 text-blue-700 shadow-sm shadow-blue-900/5' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}
+        `}
+    >
+        <div className={`transition-transform duration-200 ${active ? 'scale-110' : 'group-hover:scale-110'}`}>
+            {React.cloneElement(icon, { size: isCollapsed ? 22 : 18 })}
+        </div>
+
+        {!isCollapsed && (
+            <span className={`text-sm font-semibold tracking-tight transition-all duration-200 ${active ? 'translate-x-1' : ''}`}>
+                {label}
+            </span>
+        )}
+
+        {active && !isCollapsed && (
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-blue-600 rounded-r-full"></div>
+        )}
+
+        {/* Tooltip for Collapsed Sidebar */}
+        {isCollapsed && (
+            <div className="fixed left-20 bg-gray-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-[100] uppercase tracking-widest whitespace-nowrap shadow-xl">
+                {label}
+            </div>
+        )}
     </button>
 );
 
