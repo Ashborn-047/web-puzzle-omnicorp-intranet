@@ -4,7 +4,7 @@ import {
     MessageSquare, LogOut, Wifi, Database, Folder, User, Eye, EyeOff, Key,
     AlertTriangle, StickyNote, FileWarning, Skull, Activity, Zap, Terminal,
     DollarSign, Briefcase, Mail, Network, Trash2, Globe, FileSpreadsheet,
-    CheckSquare, XSquare, Ban, Calendar, Clock, Bell, ChevronRight, ChevronLeft, Filter, X, ArrowLeft, Menu, HelpCircle
+    CheckSquare, XSquare, Ban, Calendar, Clock, Bell, ChevronRight, ChevronLeft, Filter, X, ArrowLeft, Menu, HelpCircle, Send
 } from 'lucide-react';
 
 // --- DATA LAYER IMPORTS ---
@@ -66,6 +66,53 @@ const CorporatePortal = () => {
     const [keys, setKeys] = useState({ alpha: '', beta: '', gamma: '' });
     const [unlocked, setUnlocked] = useState(false);
     const [shake, setShake] = useState(false);
+    const [chatHistory, setChatHistory] = useState([
+        {
+            id: 'sarah-kone',
+            name: 'Sarah Kone',
+            avatar: 'SK',
+            role: 'Internal Audit',
+            lastText: 'Reporting for duty.',
+            messages: [
+                { id: 14, sender: 'Sarah Kone', text: 'Hey there. Welcome to the audit batch. Let me know if you spot anything... unusual.', time: '09:00 AM' },
+                { id: 13, sender: 'Temp Auditor', text: 'Thanks Sarah. Just getting settled. This ledger looks massive compared to the last one.', time: '09:05 AM' },
+                { id: 12, sender: 'Sarah Kone', text: 'It is. We had a systems consolidation last month. Most of it is noise, but Mark wants every line item verified.', time: '09:07 AM' },
+                { id: 11, sender: 'Sarah Kone', text: 'Don\'t sweat it too much. Just flag the obvious policy skips and we\'ll be home by five.', time: '09:10 AM' },
+                { id: 10, sender: 'Temp Auditor', text: 'Sarah, I just finished the R-7718 Travel batch. Reconciliation is complete.', time: 'Yesterday, 04:30 PM' },
+                { id: 9, sender: 'Sarah Kone', text: 'Got it. I\'ll check it and push it to Mark for final sign-off. Nice work.', time: 'Yesterday, 04:35 PM' },
+                { id: 8, sender: 'Temp Auditor', text: 'Wait, R-7715 (Software) was also confirmed? I just saw the system email.', time: 'Yesterday, 04:40 PM' },
+                { id: 7, sender: 'Sarah Kone', text: 'Yeah, Mark closed that one out this morning. No issues found. We are on a roll.', time: 'Yesterday, 04:45 PM' }
+            ]
+        },
+        {
+            id: 'system-announcements',
+            name: '#system-announcements',
+            avatar: '#',
+            role: 'Channel',
+            lastText: 'Network stable.',
+            messages: [
+                { id: 1, sender: 'System', text: 'Scheduled maintenance for Node 06-B completed. Network stability at 99.8%.', time: 'Yesterday' },
+                { id: 2, sender: 'System', text: 'LUNCH ORDER: The cafeteria is offering a 10% discount for Finance staff today. Use code OMNI-NOM.', time: 'Yesterday' },
+                { id: 3, sender: 'System', text: 'Reminder: External contractors must submit daily logs by 18:00.', time: 'Yesterday' }
+            ]
+        },
+        {
+            id: 'it-support',
+            name: 'IT Support',
+            avatar: 'IT',
+            role: 'System',
+            lastText: 'System active.',
+            messages: [
+                { id: 5, sender: 'IT Support', text: 'Your remote audit workspace is now active. Please use SSO for all external logins.', time: 'Mon, 08:45 AM' },
+                { id: 4, sender: 'Temp Auditor', text: 'Having trouble with the VPN handshake. It says certificate invalid?', time: 'Mon, 09:12 AM' },
+                { id: 3, sender: 'IT Support', text: 'The HQ-9 cluster was rebooting. Try again now. Cleared it on my end.', time: 'Mon, 09:15 AM' },
+                { id: 2, sender: 'Temp Auditor', text: 'That worked. Thanks!', time: 'Mon, 09:16 AM' },
+                { id: 1, sender: 'IT Support', text: 'No problem. Welcome to the grid.', time: 'Mon, 09:17 AM' }
+            ]
+        }
+    ]);
+    const [selectedChatId, setSelectedChatId] = useState('sarah-kone');
+    const [preparedReplies, setPreparedReplies] = useState([]);
 
     // --- CONFIGURATION ---
     // USER_DB and SOLUTIONS are now imported from the data layer
@@ -99,8 +146,62 @@ const CorporatePortal = () => {
         const id = `${timestamp}-${Math.random().toString(36).substr(2, 9)}`;
         const newNotif = { id, title: from, msg: text, isChat: true };
         setNotifications(prev => [newNotif, ...prev]);
-        // Note: Not saved to inboxMessages
+
+        // Save to persistent chat history
+        setChatHistory(prev => {
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const chatIndex = prev.findIndex(c => c.name === from || from.includes(c.name));
+
+            if (chatIndex >= 0) {
+                const updated = [...prev];
+                updated[chatIndex] = {
+                    ...updated[chatIndex],
+                    lastText: text,
+                    messages: [...updated[chatIndex].messages, { id: timestamp, sender: from.split(' — ')[0], text, time }]
+                };
+                return updated;
+            } else {
+                // New conversation
+                const cleanId = from.split(' — ')[0].toLowerCase().replace(/\s+/g, '-');
+                return [...prev, {
+                    id: cleanId,
+                    name: from.split(' — ')[0],
+                    avatar: from.charAt(0),
+                    role: 'OmniCorp User',
+                    lastText: text,
+                    messages: [{ id: timestamp, sender: from.split(' — ')[0], text, time }]
+                }];
+            }
+        });
+
+        // ACT I: Prepared Replies for Simulation
+        if (from.includes("Sarah Kone")) {
+            setPreparedReplies(["Acknowledged. I'm on it.", "Got it. I'll let you know if I find anything.", "Working on the May batch now."]);
+        } else if (from.includes("IT Support")) {
+            setPreparedReplies(["Received, confirming access now.", "Understood."]);
+        }
     }
+
+    const sendQuickReply = (text) => {
+        const timestamp = Date.now();
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        setChatHistory(prev => {
+            const chatIndex = prev.findIndex(c => c.id === selectedChatId);
+            if (chatIndex >= 0) {
+                const updated = [...prev];
+                updated[chatIndex] = {
+                    ...updated[chatIndex],
+                    lastText: text,
+                    messages: [...updated[chatIndex].messages, { id: timestamp, sender: 'Temp Auditor', text, time }]
+                };
+                return updated;
+            }
+            return prev;
+        });
+
+        setPreparedReplies([]); // Clear after sending
+    };
 
 
 
@@ -409,12 +510,21 @@ const CorporatePortal = () => {
     const [isPolicyOpen, setIsPolicyOpen] = useState(false);
 
     const renderFinance = () => {
-        const pastReports = Array.from({ length: 15 }, (_, i) => ({
-            id: `R-${7720 - i}`,
-            date: `2026-05-${12 - Math.floor(i / 3)}`,
-            cat: ['Travel', 'Procurement', 'Software', 'Services', 'Facilities'][i % 5],
-            status: 'APPROVED'
-        }));
+        const pastReports = Array.from({ length: 15 }, (_, i) => {
+            const idNumber = 7720 - i;
+            let category = ['Procurement', 'Facilities', 'Services', 'Travel', 'Software'][i % 5];
+
+            // Override for Lore Matching
+            if (idNumber === 7718) category = 'Travel';
+            if (idNumber === 7715) category = 'Software';
+
+            return {
+                id: `R-${idNumber}`,
+                date: `2026-05-${12 - Math.floor(i / 3)}`,
+                cat: category,
+                status: 'APPROVED'
+            };
+        });
 
         const categories = activePacket ? activePacket.categories : [];
         const filteredData = LEDGER_DATA.filter(t => t.category === activeLedger);
@@ -695,6 +805,106 @@ const CorporatePortal = () => {
                             );
                         });
                     })()}
+                </div>
+            </div>
+        );
+    };
+
+    const renderChat = () => {
+        const activeChat = chatHistory.find(c => c.id === selectedChatId) || chatHistory[0];
+
+        return (
+            <div className="flex h-full bg-white overflow-hidden animate-in fade-in">
+                {/* Chat Sidebar */}
+                <div className="w-1/4 min-w-[200px] border-r border-gray-100 flex flex-col bg-gray-50/30">
+                    <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                        <h3 className="font-bold text-gray-800 text-sm tracking-tight uppercase">OmniConnect</h3>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-2 scrollbar-none">
+                        <div className="mb-4">
+                            <p className="px-2 mb-1 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Direct Messages</p>
+                            {chatHistory.map(chat => (
+                                <button
+                                    key={chat.id}
+                                    onClick={() => setSelectedChatId(chat.id)}
+                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all mb-1 ${selectedChatId === chat.id ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20' : 'text-gray-600 hover:bg-white'}`}
+                                >
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${selectedChatId === chat.id ? 'bg-blue-500' : 'bg-gray-200'}`}>
+                                        {chat.avatar}
+                                    </div>
+                                    <div className="flex-1 text-left min-w-0 px-1">
+                                        <div className="flex justify-between items-center mb-0.5">
+                                            <p className="text-xs font-bold truncate">{chat.name}</p>
+                                        </div>
+                                        <p className={`text-[10px] truncate ${selectedChatId === chat.id ? 'text-blue-100' : 'text-gray-400'}`}>{chat.lastText}</p>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Message View */}
+                <div className="flex-1 flex flex-col bg-white">
+                    <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 font-bold">
+                                {activeChat.avatar}
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-gray-900 leading-none mb-1">{activeChat.name}</h4>
+                                <p className="text-xs text-gray-400 font-medium">{activeChat.role} • Online</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                        {activeChat.messages.map((m, i) => (
+                            <div key={i} className="flex gap-4 group">
+                                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-400 shrink-0 self-start mt-1 group-hover:bg-blue-50 transition-colors">
+                                    {m.sender.charAt(0)}
+                                </div>
+                                <div className="space-y-1.5 max-w-[85%]">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-bold text-gray-900">{m.sender}</span>
+                                        <span className="text-[10px] text-gray-400 font-medium">{m.time}</span>
+                                    </div>
+                                    <div className="p-3.5 bg-gray-50 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm transition-all hover:bg-gray-100/50">
+                                        <p className="text-sm text-gray-700 leading-relaxed font-medium">{m.text}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Chat Input - Sim Version */}
+                    <div className="p-4 border-t border-gray-100 bg-gray-50/50">
+                        {preparedReplies.length > 0 ? (
+                            <div className="flex flex-wrap gap-2 animate-in slide-in-from-bottom-2 duration-300">
+                                {preparedReplies.map((reply, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => sendQuickReply(reply)}
+                                        className="bg-white border border-blue-200 text-blue-700 px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-sm active:scale-95"
+                                    >
+                                        {reply}
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="relative group">
+                                <input
+                                    disabled
+                                    className="w-full bg-white border border-gray-100 p-3.5 pl-5 rounded-xl text-xs italic text-gray-400 cursor-not-allowed shadow-inner"
+                                    placeholder="Waiting for incoming transmission..."
+                                />
+                                <div className="absolute right-4 top-2.5 flex items-center gap-1.5 text-gray-200">
+                                    <Zap size={18} />
+                                    <MessageSquare size={18} />
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         );
@@ -1040,12 +1250,35 @@ const CorporatePortal = () => {
             </header>
 
             {/* NOTIFICATIONS */}
-            <div className="fixed top-20 right-4 md:right-6 z-50 flex flex-col gap-2 w-full md:w-80 pointer-events-none">
+            <div className="fixed top-20 right-4 md:right-6 z-50 flex flex-col gap-2 w-full md:w-80 pointer-events-none font-sans">
                 {notifications.map(n => (
-                    <div key={n.id} className={`${n.isChat ? 'bg-indigo-600 text-white' : 'bg-white text-gray-800'} border-l-4 ${n.isChat ? 'border-indigo-400' : 'border-blue-600'} shadow-lg p-4 rounded pointer-events-auto animate-in slide-in-from-right-10 fade-in duration-300 relative group mx-2 md:mx-0`}>
-                        <button onClick={() => removeNotification(n.id)} className={`absolute top-2 right-2 ${n.isChat ? 'text-indigo-200 hover:text-white' : 'text-gray-400 hover:text-gray-600'} md:opacity-0 md:group-hover:opacity-100 transition-opacity`}><X size={14} /></button>
-                        <h4 className={`font-bold text-sm mb-1 pr-4 ${n.isChat ? 'text-indigo-100' : 'text-gray-800'}`}>{n.title}</h4>
-                        <p className={`text-xs ${n.isChat ? 'text-white' : 'text-gray-600'}`}>{n.msg}</p>
+                    <div
+                        key={n.id}
+                        onClick={() => {
+                            if (n.isChat) {
+                                handleTabChange('chat');
+                                const cleanId = n.title.split(' — ')[0].toLowerCase().replace(/\s+/g, '-');
+                                setSelectedChatId(cleanId);
+                            }
+                            removeNotification(n.id);
+                        }}
+                        className={`
+                            ${n.isChat ? 'bg-indigo-600 text-white cursor-pointer hover:bg-indigo-500 scale-100 active:scale-95' : 'bg-white text-gray-800'} 
+                            border-l-4 ${n.isChat ? 'border-indigo-400' : 'border-blue-600'} 
+                            shadow-lg p-4 rounded-xl pointer-events-auto animate-in slide-in-from-right-10 fade-in duration-300 relative group transition-all mx-2 md:mx-0
+                        `}
+                    >
+                        <button
+                            onClick={(e) => { e.stopPropagation(); removeNotification(n.id); }}
+                            className={`absolute top-2 right-2 ${n.isChat ? 'text-indigo-200 hover:text-white' : 'text-gray-400 hover:text-gray-600'} md:opacity-0 md:group-hover:opacity-100 transition-opacity`}
+                        >
+                            <X size={14} />
+                        </button>
+                        <div className="flex items-center gap-2 mb-1">
+                            {n.isChat && <div className="w-1.5 h-1.5 rounded-full bg-indigo-300 animate-pulse"></div>}
+                            <h4 className={`font-bold text-sm pr-4 truncate ${n.isChat ? 'text-indigo-100' : 'text-gray-800 uppercase tracking-tight'}`}>{n.title}</h4>
+                        </div>
+                        <p className={`text-xs ${n.isChat ? 'text-white' : 'text-gray-600'} line-clamp-2 leading-relaxed`}>{n.msg}</p>
                     </div>
                 ))}
             </div>
@@ -1077,6 +1310,7 @@ const CorporatePortal = () => {
                     {activeTab === 'dashboard' && renderDashboard()}
                     {activeTab === 'finance' && renderFinance()}
                     {activeTab === 'messages' && renderMessages()}
+                    {activeTab === 'chat' && renderChat()}
                     {activeTab === 'terminal' && renderTerminal()}
                     {activeTab === 'documents' && renderDocuments()}
                     {activeTab === 'directory' && renderDirectory()}
@@ -1117,10 +1351,17 @@ const SidebarContent = ({ activeTab, handleTabChange, isCollapsed, setIsCollapse
                 isCollapsed={isCollapsed}
             />
             <NavBtn
-                label="Inbox"
+                label="OmniMail"
                 icon={<Mail />}
                 active={activeTab === 'messages'}
                 onClick={() => handleTabChange('messages')}
+                isCollapsed={isCollapsed}
+            />
+            <NavBtn
+                label="OmniConnect"
+                icon={<MessageSquare />}
+                active={activeTab === 'chat'}
+                onClick={() => handleTabChange('chat')}
                 isCollapsed={isCollapsed}
             />
             <NavBtn
