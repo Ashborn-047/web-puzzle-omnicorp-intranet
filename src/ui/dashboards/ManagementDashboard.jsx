@@ -3,7 +3,7 @@ import {
     Crown, ShieldAlert, TrendingUp, Zap, Mail, LogOut, Activity, Landmark, EyeOff
 } from 'lucide-react';
 
-const ManagementDashboard = ({ _user, onTabChange, onLogout }) => {
+const ManagementDashboard = ({ onTabChange, onLogout }) => {
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 md:p-6 animate-in fade-in">
             {/* Executive Header */}
