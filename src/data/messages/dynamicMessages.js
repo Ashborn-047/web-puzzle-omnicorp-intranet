@@ -41,6 +41,19 @@ export const DYNAMIC_MESSAGES = {
             tab: 'terminal',
             delay: 500
         }
+    },
+
+    // ACT II: Sarah Kone re-review request
+    ACT2_SARAH_KONE: {
+        id: 'act2_sarah_kone',
+        from: 'Sarah Kone',
+        subject: 'Re: Procedural Variance Review',
+        body: 'We have observed similar procedural variance in prior audits. Please re-review the attached expenditure packets and classify authorization sources where applicable.',
+        trigger: {
+            tab: 'finance',
+            clearance: 'AUDIT_L2',
+            delay: 2000
+        }
     }
 };
 
@@ -54,10 +67,11 @@ export const getDynamicMessage = (messageId) => {
 /**
  * Get all trigger-ready messages for a tab
  */
-export const getMessagesForTab = (tab, role = null) => {
+export const getMessagesForTab = (tab, role = null, clearance = null) => {
     return Object.values(DYNAMIC_MESSAGES).filter(m => {
         if (m.trigger.tab !== tab) return false;
         if (m.trigger.role && m.trigger.role !== role) return false;
+        if (m.trigger.clearance && m.trigger.clearance !== clearance) return false;
         return true;
     });
 };

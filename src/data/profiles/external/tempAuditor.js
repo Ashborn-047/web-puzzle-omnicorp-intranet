@@ -12,7 +12,10 @@ export const tempAuditor = {
     dept: "External Audit",
     role: "AUDITOR_TEMP",
     region: "HQ",
-    clearance: "EXTERNAL",
+    employmentType: "EXTERNAL",
+    clearance: "L2_D",
+    clearanceScope: ["finance"],
+    clearanceExpiry: "2026-06-30",
     permissions: ['dashboard', 'finance', 'messages'],
     notifications: [],
     messages: [
@@ -107,6 +110,26 @@ export const tempAuditor = {
             subject: "Ticket #88219: Regional Access Granted",
             body: "Access to HQ Finance databases has been provisioned for your temporary badge ID. If you experience latency while using the remote link, please contact the onsite technician.",
             date: "2 weeks ago"
+        },
+        {
+            id: 1001,
+            from: "Finance Operations",
+            to: "IT Operations",
+            cc: "Sarah Kone",
+            subject: "External Audit Access Authorization",
+            body: "Requesting delegated internal access (L2_D) for external auditor AUDIT-04 for duration of Q2 Finance Audit.\n\nScope: Finance Audit Module only.",
+            date: "1 month ago",
+            isRead: true
+        },
+        {
+            id: 1002,
+            from: "IT Operations",
+            to: "Finance Operations",
+            cc: "Sarah Kone",
+            subject: "Re: External Audit Access Authorization",
+            body: "Delegated access approved for employee AUDIT-04.\n\nLevel: L2_D\nScope: FINANCE_AUDIT\nEffective: Immediately\nExpires: 2026-06-30\n\nAudit logs reflect this authorization.",
+            date: "1 month ago",
+            isRead: true
         }
     ]
 };

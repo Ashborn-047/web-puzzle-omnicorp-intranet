@@ -1,29 +1,46 @@
 /**
  * Clearance Levels
  * 
- * Hierarchy: EXTERNAL → L1 → L2 → L3 → OMEGA
- * 
- * EXTERNAL (0): Temp Auditor - Limited access, ID-only login
- * L1 (1): Internal Staff - Basic employee access
- * L2 (2): Admin/Sys/HR - Department heads, sensitive data
- * L3 (3): Executive/Legal - Full corporate access
- * OMEGA (4): System-Level - Project Omega access
+ * Ladder: L0 → L1 → L2 → L3 → L4 → L5 → LΩ
  */
 
 export const CLEARANCE = {
-    EXTERNAL: 0,
-    L1: 1,
-    L2: 2,
-    L3: 3,
-    OMEGA: 4
+    L0: 0, // External / Disposable
+    L1: 1, // Junior Internal
+    L2: 2, // Standard Internal
+    L2_D: 2.5, // Delegated Internal (External, Approved)
+    L3: 3, // Senior / Cross-Dept
+    L4: 4, // Director / Executive
+    L5: 5, // Strategic Oversight
+    L_OMEGA: 6 // Classified
 };
 
 export const CLEARANCE_NAMES = {
-    [CLEARANCE.EXTERNAL]: 'EXTERNAL',
+    [CLEARANCE.L0]: 'L0',
     [CLEARANCE.L1]: 'L1',
     [CLEARANCE.L2]: 'L2',
+    [CLEARANCE.L2_D]: 'L2-D',
     [CLEARANCE.L3]: 'L3',
-    [CLEARANCE.OMEGA]: 'OMEGA'
+    [CLEARANCE.L4]: 'L4',
+    [CLEARANCE.L5]: 'L5',
+    [CLEARANCE.L_OMEGA]: 'LΩ'
+};
+
+/**
+ * Roles Enum
+ */
+export const ROLES = {
+    AUDITOR: 'AUDITOR',
+    FINANCE: 'FINANCE',
+    SYSADMIN: 'SYSADMIN',
+    ENGINEER: 'ENGINEER',
+    HR: 'HR',
+    R_AND_D: 'R_AND_D',
+    SUPPLY_CHAIN: 'SUPPLY_CHAIN',
+    TRANSPORT: 'TRANSPORT',
+    MANAGEMENT: 'MANAGEMENT',
+    LEADERSHIP: 'LEADERSHIP',
+    SYSTEM: 'SYSTEM'
 };
 
 /**
@@ -31,25 +48,35 @@ export const CLEARANCE_NAMES = {
  */
 export const getClearanceLevel = (clearanceStr) => {
     const map = {
-        'EXTERNAL': CLEARANCE.EXTERNAL,
+        'L0': CLEARANCE.L0,
+        'EXTERNAL': CLEARANCE.L0,
         'L1': CLEARANCE.L1,
         'L2': CLEARANCE.L2,
+        'L2_D': CLEARANCE.L2_D,
+        'L2-D': CLEARANCE.L2_D,
+        'DELEGATED': CLEARANCE.L2_D,
         'L3': CLEARANCE.L3,
-        'OMEGA': CLEARANCE.OMEGA
+        'L4': CLEARANCE.L4,
+        'L5': CLEARANCE.L5,
+        'L_OMEGA': CLEARANCE.L_OMEGA,
+        'OMEGA': CLEARANCE.L_OMEGA,
+        'LΩ': CLEARANCE.L_OMEGA
     };
-    return map[clearanceStr] ?? CLEARANCE.EXTERNAL;
+    return map[clearanceStr] ?? CLEARANCE.L0;
 };
 
 /**
  * Check if user has minimum clearance
  */
 export const hasMinimumClearance = (userClearance, requiredClearance) => {
-    const userLevel = typeof userClearance === 'string'
-        ? getClearanceLevel(userClearance)
-        : userClearance;
-    const required = typeof requiredClearance === 'string'
-        ? getClearanceLevel(requiredClearance)
-        : requiredClearance;
+    const userLevel = typeof userClearance === 'number'
+        ? userClearance
+        : getClearanceLevel(userClearance);
+
+    const required = typeof requiredClearance === 'number'
+        ? requiredClearance
+        : getClearanceLevel(requiredClearance);
+
     return userLevel >= required;
 };
 
@@ -61,16 +88,45 @@ export const getClearanceName = (level) => {
 };
 
 /**
- * Clearance requirements for resources
+ * Tab/Resource Permission Logic
+ * Roles determine what is in the sidebar.
+ * Clearance determines redaction/field visibility.
  */
-export const RESOURCE_CLEARANCE = {
-    dashboard: CLEARANCE.EXTERNAL,
-    messages: CLEARANCE.EXTERNAL,
-    finance: CLEARANCE.EXTERNAL,
-    directory: CLEARANCE.L1,
-    documents: CLEARANCE.L1,
-    infrastructure: CLEARANCE.L1,
-    terminal: CLEARANCE.L2,
-    history: CLEARANCE.L1,
-    restricted: CLEARANCE.L2  // But also requires explicit permission
+export const ROLE_PERMISSIONS = {
+    [ROLES.AUDITOR]: ['dashboard', 'messages', 'chat', 'finance', 'directory'],
+    ['AUDITOR_TEMP']: ['dashboard', 'messages', 'chat', 'finance', 'directory'],
+    [ROLES.FINANCE]: ['dashboard', 'messages', 'chat', 'finance', 'directory'],
+    [ROLES.SYSADMIN]: ['dashboard', 'messages', 'chat', 'terminal', 'infrastructure', 'directory'],
+    [ROLES.ENGINEER]: ['dashboard', 'messages', 'chat', 'terminal', 'infrastructure', 'directory'],
+    [ROLES.HR]: ['dashboard', 'messages', 'chat', 'directory'],
+    [ROLES.R_AND_D]: ['dashboard', 'messages', 'chat', 'documents', 'directory'],
+    [ROLES.MANAGEMENT]: ['dashboard', 'messages', 'chat', 'finance', 'documents', 'directory'],
+    [ROLES.LEADERSHIP]: ['dashboard', 'messages', 'chat', 'finance', 'documents', 'directory', 'classified'],
+    [ROLES.SYSTEM]: [] // System accounts have no interactive permission
+};
+
+/**
+ * Scoped Access Logic (HARD RULE)
+ * - Delegated scope enforcement for L2_D
+ * - Role-based permission fallback for internal users
+ * - Clearance ONLY affects redaction, ROLE handles boundaries
+ */
+export const hasModuleAccess = (user, module) => {
+    if (!user) return false;
+
+    const rolePermissions = ROLE_PERMISSIONS[user.role] || [];
+    if (!rolePermissions.includes(module)) return false;
+
+    // CORE modules are always allowed if the role permits them
+    const isCore = ['dashboard', 'messages', 'chat', 'directory'].includes(module);
+    if (isCore) return true;
+
+    // Delegated access (external) - Surgical scope for sensitive modules
+    if (user.clearance === 'L2_D' || user.clearanceLevel === 'L2_D') {
+        return user.clearanceScope?.includes(module);
+    }
+
+    // Internal users check
+    const level = getClearanceLevel(user.clearance || user.clearanceLevel);
+    return level !== undefined;
 };

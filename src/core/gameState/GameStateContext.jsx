@@ -12,10 +12,27 @@ import { createProgressionState, triggerPasswordShift, recordClueFound, recordOv
 import { shouldRequirePassword } from '../access/passwordRules.js';
 import { checkOverseerTrigger } from '../overseer/overseerTriggers.js';
 
-// Initial state
+// Hydrate progression from localStorage if present
+const getInitialProgression = () => {
+    const base = createProgressionState();
+    const saved = localStorage.getItem('omnicorp_progression');
+    if (saved) {
+        try {
+            const parsed = JSON.parse(saved);
+            return {
+                ...base,
+                userClearance: parsed.userClearance || base.userClearance
+            };
+        } catch (e) {
+            console.error("Failed to parse progression state", e);
+        }
+    }
+    return base;
+};
+
 const initialState = {
     behavior: createBehaviorFlags(),
-    progression: createProgressionState(),
+    progression: getInitialProgression(),
     previousBehavior: null,
     pendingOverseerMessage: null
 };
@@ -95,10 +112,21 @@ function gameStateReducer(state, action) {
         }
 
         case ACTIONS.COMPLETE_AUDIT: {
-            return {
+            const newState = {
                 ...state,
-                behavior: recordAuditCompleted(state.behavior)
+                behavior: recordAuditCompleted(state.behavior),
+                progression: {
+                    ...state.progression,
+                    userClearance: 'AUDIT_L2'
+                }
             };
+
+            // Persist clearance shift
+            localStorage.setItem('omnicorp_progression', JSON.stringify({
+                userClearance: newState.progression.userClearance
+            }));
+
+            return newState;
         }
 
         case ACTIONS.FIND_CLUE: {

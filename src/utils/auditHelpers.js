@@ -45,3 +45,32 @@ export const validateProcessAudit = (selectedIds, allTransactions, activeCategor
         message: "Submission incomplete. Selected items do not demonstrate a consistent policy violation pattern."
     };
 };
+
+/**
+ * Validate audit submission for Act II (Systemic anomalies)
+ */
+export const validateSystemAudit = (selectedIds, allTransactions, activeCategories) => {
+    // 1. Get system-authorized items within categories
+    const systemItems = allTransactions.filter(t =>
+        activeCategories.includes(t.category) &&
+        (t.authorizedBy === 'ID-9000' || t.authSource === 'SYS-9000')
+    );
+
+    const systemIds = systemItems.map(t => t.transactionId);
+
+    // 2. Check if player caught ALL system items
+    const caughtAll = systemIds.every(id => selectedIds.includes(id));
+    const onlySystem = selectedIds.every(id => systemIds.includes(id));
+
+    if (caughtAll && onlySystem && selectedIds.length > 0) {
+        return {
+            success: true,
+            message: "Cross-departmental variance accepted. Data suggests systemic exception handling rather than human error."
+        };
+    }
+
+    return {
+        success: false,
+        message: "Submission rejected. Individual items flagged do not present a systemic pattern."
+    };
+};

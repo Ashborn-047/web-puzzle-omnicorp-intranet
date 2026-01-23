@@ -50,7 +50,11 @@ export const LEDGER_DATA = [
         "verifiedBy": "Auto-Authorized",
         "authorizedBy": "ID-9000",
         "authorizationDate": "2026-05-10",
-        "status": "Approved"
+        "status": "Approved",
+        "authSource": "SYS-9000",
+        "authType": "Automated Exception",
+        "exceptionHandler": "SYS-9000",
+        "approvalPath": "System -> IT Ops -> Automated"
     },
     {
         "transactionId": "P1004",
@@ -128,7 +132,11 @@ export const LEDGER_DATA = [
         "verifiedBy": "Auto-Authorized",
         "authorizedBy": "ID-9000",
         "authorizationDate": "2026-05-10",
-        "status": "Approved"
+        "status": "Approved",
+        "authSource": "SYS-9000",
+        "authType": "Automated Exception",
+        "exceptionHandler": "SYS-9000",
+        "approvalPath": "System -> IT Ops -> Automated"
     },
     {
         "transactionId": "P1010",
@@ -180,7 +188,11 @@ export const LEDGER_DATA = [
         "verifiedBy": "System Override",
         "authorizedBy": "ID-9000",
         "authorizationDate": "2026-05-10",
-        "status": "Approved"
+        "status": "Approved",
+        "authSource": "SYS-9000",
+        "authType": "Automated Exception",
+        "exceptionHandler": "SYS-9000",
+        "approvalPath": "System -> IT Ops -> Automated"
     },
     {
         "transactionId": "P1014",
@@ -245,7 +257,11 @@ export const LEDGER_DATA = [
         "verifiedBy": "System Override",
         "authorizedBy": "ID-9000",
         "authorizationDate": "2026-05-10",
-        "status": "Approved"
+        "status": "Approved",
+        "authSource": "SYS-9000",
+        "authType": "Automated Exception",
+        "exceptionHandler": "SYS-9000",
+        "approvalPath": "System -> IT Ops -> Automated"
     },
     {
         "transactionId": "T1004",

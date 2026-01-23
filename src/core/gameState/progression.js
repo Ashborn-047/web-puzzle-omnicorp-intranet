@@ -33,7 +33,8 @@ export const createProgressionState = () => ({
     overseerMessageQueue: [],
     endingClassification: null,
     projectOmegaUnlocked: false,
-    gameEnded: false
+    gameEnded: false,
+    userClearance: 'AUDIT_L1'
 });
 
 /**
