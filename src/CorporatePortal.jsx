@@ -12,7 +12,7 @@ import { USER_DB } from './data/profiles/index.js';
 import { LEDGER_DATA, CURRENT_YEAR } from './data/documents/ledger.js';
 import { SOLUTIONS } from './data/clues/index.js';
 import { DIRECTORY_EMPLOYEES, DIRECTORY_FILTERS } from './data/profiles/directory.js';
-import { CLEARANCE, ROLES, ROLE_PERMISSIONS, getClearanceLevel, hasMinimumClearance, hasModuleAccess } from './core/access/clearanceLevels.js';
+import { CLEARANCE, ROLES, ROLE_PERMISSIONS, getClearanceLevel, hasModuleAccess } from './core/access/clearanceLevels.js';
 import { useGameState } from './core/gameState/hooks.js';
 import { validateProcessAudit, validateSystemAudit } from './utils/auditHelpers.js';
 import OverseerMessage from './ui/overlays/OverseerMessage.jsx';
@@ -237,7 +237,7 @@ const CorporatePortal = () => {
             }, 1000);
             return () => clearTimeout(timer);
         }
-    }, [activeTab, user, shownMessageIds, state.progression.userClearance]);
+    }, [activeTab, user, shownMessageIds, state.progression.userClearance, addChatPing]);
 
     const handleTabChange = (newTab) => {
         setActiveTab(newTab);
