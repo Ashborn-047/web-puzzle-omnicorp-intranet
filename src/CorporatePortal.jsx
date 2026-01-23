@@ -120,7 +120,7 @@ const CorporatePortal = () => {
 
     // --- EFFECTS & HELPERS ---
 
-    function addNotification(title, msg, from = "System") {
+    const addNotification = React.useCallback((title, msg, from = "System") => {
         const timestamp = Date.now();
         const id = `${timestamp}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -138,10 +138,10 @@ const CorporatePortal = () => {
             isNew: true
         };
         setInboxMessages(prev => [newInboxMsg, ...prev]);
-    }
+    }, []);
 
     // --- ACT I: EPHEMERAL CHAT PING ---
-    function addChatPing(from, text) {
+    const addChatPing = React.useCallback((from, text) => {
         const timestamp = Date.now();
         const id = `${timestamp}-${Math.random().toString(36).substr(2, 9)}`;
         const newNotif = { id, title: from, msg: text, isChat: true };
@@ -180,9 +180,9 @@ const CorporatePortal = () => {
         } else if (from.includes("IT Support")) {
             setPreparedReplies(["Received, confirming access now.", "Understood."]);
         }
-    }
+    }, []);
 
-    const sendQuickReply = (text) => {
+    const sendQuickReply = React.useCallback((text) => {
         const timestamp = Date.now();
         const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -201,7 +201,7 @@ const CorporatePortal = () => {
         });
 
         setPreparedReplies([]); // Clear after sending
-    };
+    }, [selectedChatId]);
 
 
 
