@@ -99,7 +99,7 @@ const SysAdminDashboard = ({ user, onTabChange, onLogout }) => {
                 <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2 uppercase tracking-wider text-xs">
                     <Zap size={18} className="text-slate-600" /> Admin Tools
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <button className="p-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg flex flex-col items-center gap-2 transition-colors cursor-not-allowed opacity-50">
                         <Network size={24} className="text-indigo-600" />
                         <span className="text-[10px] font-bold text-gray-700 uppercase">Map Network</span>
@@ -108,11 +108,11 @@ const SysAdminDashboard = ({ user, onTabChange, onLogout }) => {
                         <Shield size={24} className="text-red-500" />
                         <span className="text-[10px] font-bold text-gray-700 uppercase">Purge Logs</span>
                     </button>
-                    <button onClick={() => onTabChange('messages')} className="p-4 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-lg flex flex-col items-center gap-2 transition-colors group">
+                    <button onClick={() => onTabChange('messages')} className="p-4 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-lg flex flex-col items-center gap-2 transition-all hover:scale-105 group active:scale-95 shadow-sm">
                         <Mail size={24} className="text-blue-600 group-hover:scale-110 transition-transform" />
                         <span className="text-[10px] font-bold text-gray-700 uppercase">Comm Center</span>
                     </button>
-                    <button onClick={onLogout} className="p-4 bg-slate-50 hover:bg-red-50 border border-slate-200 rounded-lg flex flex-col items-center gap-2 transition-colors group">
+                    <button onClick={onLogout} className="p-4 bg-slate-50 hover:bg-red-50 border border-slate-200 rounded-lg flex flex-col items-center gap-2 transition-all hover:scale-105 group active:scale-95 shadow-sm">
                         <LogOut size={24} className="text-red-500 group-hover:scale-110 transition-transform" />
                         <span className="text-[10px] font-bold text-gray-700 uppercase">Logout</span>
                     </button>

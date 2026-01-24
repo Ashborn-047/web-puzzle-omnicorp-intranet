@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-    Calendar, CheckSquare, AlertCircle, Zap, Mail, DollarSign, LogOut, Activity, BarChart3, Clock
+    Calendar, CheckSquare, Zap, Mail, DollarSign, LogOut, Activity, BarChart3, Clock
 } from 'lucide-react';
 
 const AuditorDashboard = ({ user, onTabChange, onLogout }) => {
@@ -98,32 +98,32 @@ const AuditorDashboard = ({ user, onTabChange, onLogout }) => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <button
                         onClick={() => onTabChange('messages')}
-                        className="p-4 bg-gray-50 hover:bg-blue-50 border border-gray-200 rounded-lg flex items-center gap-3 transition-colors group"
+                        className="p-4 bg-gray-50 hover:bg-blue-50 border border-gray-200 rounded-lg flex items-center gap-3 transition-all hover:scale-105 group active:scale-95 shadow-sm"
                     >
                         <Mail size={24} className="text-blue-600 group-hover:scale-110 transition-transform" />
                         <div className="text-left">
                             <span className="block text-sm font-bold">Inbox</span>
-                            <span className="text-[10px] text-gray-500 uppercase">View correspondence</span>
+                            <span className="text-[10px] text-gray-500 uppercase">Correspondence</span>
                         </div>
                     </button>
                     <button
                         onClick={() => onTabChange('finance')}
-                        className="p-4 bg-gray-50 hover:bg-green-50 border border-gray-200 rounded-lg flex items-center gap-3 transition-colors group"
+                        className="p-4 bg-gray-50 hover:bg-green-50 border border-gray-200 rounded-lg flex items-center gap-3 transition-all hover:scale-105 group active:scale-95 shadow-sm"
                     >
                         <DollarSign size={24} className="text-green-600 group-hover:scale-110 transition-transform" />
                         <div className="text-left">
-                            <span className="block text-sm font-bold">Finance Audit</span>
-                            <span className="text-[10px] text-gray-500 uppercase">Active processing</span>
+                            <span className="block text-sm font-bold">Finance</span>
+                            <span className="text-[10px] text-gray-500 uppercase">Active Audits</span>
                         </div>
                     </button>
                     <button
                         onClick={onLogout}
-                        className="p-4 bg-gray-50 hover:bg-red-50 border border-gray-200 rounded-lg flex items-center gap-3 transition-colors group"
+                        className="p-4 bg-gray-50 hover:bg-red-50 border border-gray-200 rounded-lg flex items-center gap-3 transition-all hover:scale-105 group active:scale-95 shadow-sm"
                     >
                         <LogOut size={24} className="text-red-600 group-hover:scale-110 transition-transform" />
                         <div className="text-left">
                             <span className="block text-sm font-bold">Logout</span>
-                            <span className="text-[10px] text-gray-500 uppercase">End session</span>
+                            <span className="text-[10px] text-gray-500 uppercase">End Session</span>
                         </div>
                     </button>
                 </div>

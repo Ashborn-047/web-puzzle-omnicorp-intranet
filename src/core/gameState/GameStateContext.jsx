@@ -7,8 +7,9 @@
 
 import React, { useReducer, useCallback } from 'react';
 import { GameStateContext } from './context.js';
-import { createBehaviorFlags, recordProfileAccess, recordDeletedMessageRead, recordRegionSwitch, recordTerminalCommand, recordAuditCompleted } from './behaviorFlags.js';
-import { createProgressionState, triggerPasswordShift, recordClueFound, recordOverseerMessage } from './progression.js';
+import { createBehaviorFlags, recordProfileAccess, recordDeletedMessageRead, recordRegionSwitch, recordTerminalCommand, recordAuditCompleted, recordDocumentViewed } from './behaviorFlags.js';
+import { createProgressionState, triggerPasswordShift, recordClueFound, recordOverseerMessage, recordTrace as progressionRecordTrace, recordArchiveAccessed as progressionRecordArchiveAccessed, unlockNotepadEntry as progressionUnlockNotepadEntry } from './progression.js';
+import { NOTEPAD_ENTRIES } from '../../data/notepad/entries.js';
 import { shouldRequirePassword } from '../access/passwordRules.js';
 import { checkOverseerTrigger } from '../overseer/overseerTriggers.js';
 
@@ -47,6 +48,10 @@ const ACTIONS = {
     FIND_CLUE: 'FIND_CLUE',
     SHOW_OVERSEER_MESSAGE: 'SHOW_OVERSEER_MESSAGE',
     DISMISS_OVERSEER_MESSAGE: 'DISMISS_OVERSEER_MESSAGE',
+    RECORD_TRACE: 'RECORD_TRACE',
+    RECORD_ARCHIVE_ACCESSED: 'RECORD_ARCHIVE_ACCESSED',
+    RECORD_DOCUMENT_VIEWED: 'RECORD_DOCUMENT_VIEWED',
+    UNLOCK_NOTEPAD_ENTRY: 'UNLOCK_NOTEPAD_ENTRY',
     RESET_GAME: 'RESET_GAME'
 };
 
@@ -151,6 +156,36 @@ function gameStateReducer(state, action) {
             };
         }
 
+        case ACTIONS.RECORD_TRACE: {
+            return {
+                ...state,
+                progression: progressionRecordTrace(state.progression, action.payload)
+            };
+        }
+
+        case ACTIONS.RECORD_ARCHIVE_ACCESSED: {
+            return {
+                ...state,
+                progression: progressionRecordArchiveAccessed(state.progression)
+            };
+        }
+
+        case ACTIONS.RECORD_DOCUMENT_VIEWED: {
+            return {
+                ...state,
+                behavior: recordDocumentViewed(state.behavior, action.payload)
+            };
+        }
+
+        case ACTIONS.UNLOCK_NOTEPAD_ENTRY: {
+            const text = NOTEPAD_ENTRIES[action.payload];
+            if (!text) return state;
+            return {
+                ...state,
+                progression: progressionUnlockNotepadEntry(state.progression, action.payload, text)
+            };
+        }
+
         case ACTIONS.RESET_GAME: {
             return initialState;
         }
@@ -200,6 +235,22 @@ export function GameStateProvider({ children }) {
 
         resetGame: useCallback(() => {
             dispatch({ type: ACTIONS.RESET_GAME });
+        }, []),
+
+        recordTrace: useCallback((traceId) => {
+            dispatch({ type: ACTIONS.RECORD_TRACE, payload: traceId });
+        }, []),
+
+        recordArchiveAccessed: useCallback(() => {
+            dispatch({ type: ACTIONS.RECORD_ARCHIVE_ACCESSED });
+        }, []),
+
+        recordDocumentViewed: useCallback((documentId) => {
+            dispatch({ type: ACTIONS.RECORD_DOCUMENT_VIEWED, payload: documentId });
+        }, []),
+
+        unlockNotepadEntry: useCallback((triggerId) => {
+            dispatch({ type: ACTIONS.UNLOCK_NOTEPAD_ENTRY, payload: triggerId });
         }, [])
     };
 

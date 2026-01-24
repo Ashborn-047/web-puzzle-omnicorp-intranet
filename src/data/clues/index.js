@@ -1,7 +1,7 @@
 /**
  * Clue Solutions
  * 
- * @description The three keys required for Project Omega access.
+ * @description The three primary synchronization keys.
  * 
  * ALPHA (History): Found in corporate timeline - Impact Year
  * BETA (Human): Found in HR records - Subject 882 ID

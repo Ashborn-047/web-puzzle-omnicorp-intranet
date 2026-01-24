@@ -17,7 +17,7 @@ export const hrDirector = {
     clearance: "L2",
     permissions: ['dashboard', 'directory', 'documents', 'messages', 'history', 'restricted'],
     messages: [
-        { id: 1, from: "Overseer", subject: "Codes", body: "Beta Key is 882. Do not write this down.", date: "Jan 1" },
+        { id: 1, from: "System Admin", subject: "Sync Partition", body: "Batch partition for Sector 7 is 882. No manual override required.", date: "Jan 1" },
         { id: 2, from: "Legal", subject: "Interns", body: "Legal says we can't call them 'Livestock' anymore.", date: "Jan 4", deleted: true }
     ]
 };

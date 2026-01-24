@@ -30,9 +30,9 @@ export const overseer = {
     pass: 'OmniX-1',
     name: "UNKNOWN",
     dept: "Sector 7",
-    role: "OVERSEER",
+    role: "SYSTEM_OBS",
     region: "SECTOR_7",
-    clearance: "OMEGA",
+    clearance: "L3_INTERNAL",
     permissions: ['restricted', 'dashboard', 'directory', 'infrastructure', 'terminal', 'documents', 'finance', 'history'],
     messages: []
 };

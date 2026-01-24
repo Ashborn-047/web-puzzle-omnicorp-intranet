@@ -1,187 +1,129 @@
 /**
- * Act II Chats
+ * Act II Chats - STRICT CANON REWORK
  * 
- * 20-30 Chat logs escalating from routine IT to concern.
- * Soft-gated visibility rules:
- * - A: Routine (Clearance L2+)
- * - B: Pattern Rec (Clearance L3 or specific logs read)
- * - C: Concern (Progression > mid-point)
+ * 4 Phase Structure:
+ * - Group A (Routine IT): Trust/normalcy.
+ * - Group B (Engineering/R&D): Anomalies leak from others.
+ * - Group C (HR/Facilities/Audit): Human cost via process.
+ * - Group D (Final/Silence): David's disappearance.
  */
 
 export const ACT2_CHATS = [
-    // PHASE A: Routine IT Support
+    // --- GROUP A: ROUTINE IT (6-8) ---
     {
-        id: 'chat_a_01',
-        name: 'IT Support — Node 04',
+        id: 'c_a2_01',
+        name: 'IT Support-HQ',
+        avatar: 'IT',
+        role: 'Support Level 1',
+        lastText: 'Yeah, nightly sync jobs. Normal.',
         messages: [
-            { sender: 'David Bowman', text: 'Latency spike on Node 666. Can you verify routing?', time: '08:15 AM' },
-            { sender: 'IT Support', text: 'Checking... seeing heavy ingestion from Sector 7. Normalizing now.', time: '08:20 AM' }
+            { sender: 'David Bowman', text: 'Quick check — Node 06 CPU spike around 02:00?', time: '08:14' },
+            { sender: 'IT Support-HQ', text: 'Yeah, nightly sync jobs. Normal. Node-00 also spiked. Sync 4112.', time: '08:16' },
+            { sender: 'David Bowman', text: 'Thanks.', time: '08:17' }
         ],
-        visibility: { clearance: 'L2' }
+        visibility: { progression: 0 }
     },
     {
-        id: 'chat_a_02',
-        name: 'Facilities Mgmt',
+        id: 'c_a2_02',
+        name: 'SysAdmin-West',
+        avatar: 'SW',
+        role: 'Regional Admin',
+        lastText: 'Europe-West is odd.',
         messages: [
-            { sender: 'Facilities', text: 'Need additional cooling units for Sub-Level 4. Influx is exceeding design spec.', time: '09:45 AM' },
-            { sender: 'David Bowman', text: 'Spec was updated last week. Submit procurement request P-105.', time: '09:50 AM' }
+            { sender: 'David Bowman', text: 'Quick question — approval logs centralized?', time: '09:02' },
+            { sender: 'SysAdmin-West', text: 'Mostly. Some regional variance.', time: '09:05' },
+            { sender: 'David Bowman', text: 'Which regions?', time: '09:07' },
+            { sender: 'SysAdmin-West', text: 'Europe-West is odd. Authorizations clusters under ID-3124.', time: '09:10' }
         ],
-        visibility: { clearance: 'L2' }
-    },
-    {
-        id: 'chat_a_03',
-        name: 'HR Automation',
-        messages: [
-            { sender: 'HRBot', text: 'System ID 4412 flag: Termination protocol active. Please revoke access.', time: '11:00 AM' },
-            { sender: 'David Bowman', text: 'Again? That’s the third this morning. Revoking.', time: '11:05 AM' }
-        ],
-        visibility: { clearance: 'L2' }
-    },
-    {
-        id: 'chat_a_04',
-        name: 'Payroll Helpdesk',
-        messages: [
-            { sender: 'Payroll', text: 'We have a mismatch on contractor IDs for the Apex Sol invoice. Can you verify?', time: '01:22 PM' },
-            { sender: 'David Bowman', text: 'It’s a legacy classification. Ignore the mismatch.', time: '01:25 PM' }
-        ],
-        visibility: { clearance: 'L2' }
-    },
-    {
-        id: 'chat_a_05',
-        name: 'Security Ops',
-        messages: [
-            { sender: 'SecOps', text: 'Badge read 9000 in archive wing at 03:00 AM. Expected?', time: '08:00 AM' },
-            { sender: 'David Bowman', text: 'Was troubleshooting correlation index latency. Log it as routine.', time: '08:05 AM' }
-        ],
-        visibility: { clearance: 'L2' }
-    },
-    {
-        id: 'chat_a_06',
-        name: 'Procurement',
-        messages: [
-            { sender: 'Procurement', text: 'Why is equipment manifest R-902 under L3 lock?', time: '10:15 AM' },
-            { sender: 'David Bowman', text: 'Project Omega requirements. Refer to Phase 4 policy.', time: '10:20 AM' }
-        ],
-        visibility: { clearance: 'L2' }
-    },
-    {
-        sender: 'IT Support', id: 'chat_a_07', name: 'IT Support', messages: [
-            { sender: 'David Bowman', text: 'Server cluster H-9 is leaking packets to an unknown external relay.', time: '11:30 AM' },
-            { sender: 'IT Support', text: 'Internal relay 0-0. Encryption is standard.', time: '11:35 AM' }
-        ], visibility: { clearance: 'L2' }
-    },
-    {
-        id: 'chat_a_08', name: 'HR Admin', messages: [
-            { sender: 'HR Admin', text: 'David, we need to finalize the "Removal" classification for the last batch.', time: '02:00 PM' },
-            { sender: 'David Bowman', text: 'I’ve processed the IDs. The system is clean.', time: '02:05 PM' }
-        ], visibility: { clearance: 'L2' }
+        visibility: { progression: 5 }
     },
 
-    // PHASE B: Pattern Recognition
+    // --- GROUP B: ENGINEERING / R&D (8-10) ---
     {
-        id: 'chat_b_01',
-        name: 'Engineering Support',
+        id: 'c_a2_10',
+        name: 'Facilities-Z7',
+        avatar: 'F7',
+        role: 'Maintenance Lead',
+        lastText: 'Calibrated twice.',
         messages: [
-            { sender: 'David Bowman', text: 'Have you noticed the attrition rate in Sector 7? It’s up 40% this month.', time: '09:00 AM' },
-            { sender: 'Engineer Clarke', text: 'I just fix the pipes, Dave. If they leave, they leave.', time: '09:15 AM' }
+            { sender: 'David Bowman', text: 'Facilities flagged shipment discrepancy for #P-9002.', time: '10:45' },
+            { sender: 'Facilities-Z7', text: 'Weight sensors showed 18kg more than manifest.', time: '10:48' },
+            { sender: 'David Bowman', text: 'Calibration issue?', time: '10:50' },
+            { sender: 'Facilities-Z7', text: 'Calibrated twice. Intake weight is correct. Regional Ops (H. Venn) reclassified as residue.', time: '11:02' }
         ],
-        visibility: { clearance: 'L3' }
+        visibility: { progression: 10 }
     },
     {
-        id: 'chat_b_02',
-        name: 'Data Integrity',
+        id: 'c_a2_11',
+        name: 'Bio Lab-S7',
+        avatar: 'BL',
+        role: 'Senior Researcher',
+        lastText: 'Not us.',
         messages: [
-            { sender: 'Data Specialist', text: 'There are phantom nodes appearing in the network map. Node-X, Node-Y...', time: '11:45 AM' },
-            { sender: 'David Bowman', text: 'I’m seeing them too. They don’t have hardware addresses. Just... presence.', time: '11:50 AM' }
+            { sender: 'David Bowman', text: 'Do biological loads get adjusted post-delivery?', time: '13:20' },
+            { sender: 'Bio Lab-S7', text: 'Not usually. Unless classification changes.', time: '13:24' },
+            { sender: 'David Bowman', text: 'Who changes classification?', time: '13:26' },
+            { sender: 'Bio Lab-S7', text: 'Not us. HQ Compliance oversight (4410).', time: '13:40' }
         ],
-        visibility: { clearance: 'L3' }
-    },
-    {
-        id: 'chat_b_03',
-        name: 'Legal Council',
-        messages: [
-            { sender: 'Legal', text: 'We need the raw logs for the May land acquisition near Sector 7.', time: '02:30 PM' },
-            { sender: 'David Bowman', text: 'The logs were purged by Overseer protocol last night. I can’t recover them.', time: '02:35 PM' }
-        ],
-        visibility: { clearance: 'L3' }
-    },
-    {
-        id: 'chat_b_04',
-        name: 'Bio-Research Lead',
-        messages: [
-            { sender: 'Bio-Lead', text: 'The biomass delivery for Node 666... the weight is wrong. Far too heavy.', time: '04:00 PM' },
-            { sender: 'David Bowman', text: 'Verify the count. Check against employee attrition logs. Do they correlate?', time: '04:10 PM' }
-        ],
-        visibility: { clearance: 'L3' }
-    },
-    {
-        sender: 'Engineer Clarke', id: 'chat_b_05', name: 'Engineering Support', messages: [
-            { sender: 'David Bowman', text: 'Isaac, checking the equipment manifest. Why did we order 500 "containment units" for HR?', time: '05:00 PM' },
-            { sender: 'Engineer Clarke', text: 'Maybe for the retirement party? Don\'t ask me.', time: '05:15 PM' }
-        ], visibility: { clearance: 'L3' }
-    },
-    {
-        id: 'chat_b_06', name: 'IT Support', messages: [
-            { sender: 'David Bowman', text: 'Security logs show multiple logins from IDs that were marked REMOVED.', time: '08:45 AM' },
-            { sender: 'IT Support', text: 'System lag. The index hasn\'t updated.', time: '08:50 AM' }
-        ], visibility: { clearance: 'L3' }
-    },
-    {
-        id: 'chat_b_07', name: 'Facilities Mgmt', messages: [
-            { sender: 'Facilities', text: 'Sector 7 expansion is hitting the old graveyard site. Board says push through.', time: '10:00 AM' },
-            { sender: 'David Bowman', text: 'Push through? There are 300 years of records there.', time: '10:05 AM' }
-        ], visibility: { clearance: 'L3' }
-    },
-    {
-        id: 'chat_b_08', name: 'Accounting', messages: [
-            { sender: 'Accountant', text: 'Apex Sol. isn\'t a logistics firm. They are a burial service.', time: '11:30 AM' },
-            { sender: 'David Bowman', text: 'I know. Don\'t put that in the ticket.', time: '11:35 AM' }
-        ], visibility: { clearance: 'L3' }
-    },
-    {
-        id: 'chat_b_09', name: 'System Admin', messages: [
-            { sender: 'David Bowman', text: 'Accessing the correlation index now. It\'s encrypted at L0. Why?', time: '01:00 PM' },
-            { sender: 'System', text: 'Unauthorized inquiry detected. Logging session.', time: '01:05 PM' }
-        ], visibility: { clearance: 'L3' }
+        visibility: { progression: 15 }
     },
 
-    // PHASE C: Concern, Cutoff
+    // --- GROUP C: HR / FACILITIES / LEGAL (6-8) ---
     {
-        id: 'chat_c_01',
-        name: 'Private Channel: DB/IC',
+        id: 'c_a2_20',
+        name: 'HR Automation-HQ',
+        avatar: 'HR',
+        role: 'Process Logic v4',
+        lastText: 'Current classification.',
         messages: [
-            { sender: 'David Bowman', text: 'Isaac. Don’t use the company net for this. They are building a digital grave.', time: '10:00 PM' },
-            { sender: 'System', text: 'User David Bowman no longer active.', time: '10:02 PM' }
+            { sender: 'David Bowman', text: 'Attrition report for Sector 7 doesn’t match Facilities occupancy.', time: '14:15' },
+            { sender: 'HR Automation-HQ', text: 'Numbers are correct.', time: '14:16' },
+            { sender: 'David Bowman', text: 'Correct relative to which dataset?', time: '14:18' },
+            { sender: 'HR Automation-HQ', text: 'Current classification. Batch 112 reclassified by E. Kovács (6193).', time: '14:25' }
+        ],
+        visibility: { progression: 20 }
+    },
+    {
+        id: 'c_a2_21',
+        name: 'Facilities-Ops',
+        avatar: 'FO',
+        role: 'Logistics Liaison',
+        lastText: 'The site.',
+        messages: [
+            { sender: 'David Bowman', text: 'Land expansion request #882 — what’s it for?', time: '15:30' },
+            { sender: 'Facilities-Ops', text: 'Buffer zone.', time: '15:32' },
+            { sender: 'David Bowman', text: 'Around what?', time: '15:35' },
+            { sender: 'Facilities-Ops', text: 'The site. Expansion Lead T. Reed signed off.', time: '15:45' }
+        ],
+        visibility: { progression: 25 }
+    },
+
+    // --- GROUP D: FINAL / SILENCE (3-4) ---
+    {
+        id: 'c_a2_30',
+        name: 'Isaac Clarke',
+        avatar: 'IC',
+        role: 'Engineer (Maintenance)',
+        lastText: 'No.',
+        messages: [
+            { sender: 'Isaac Clarke', text: 'You still need the logs?', time: '16:02' },
+            { sender: 'David Bowman', text: 'Yes.', time: '16:05' },
+            { sender: 'Isaac Clarke', text: 'Should I stop sending them?', time: '16:07' },
+            { sender: 'David Bowman', text: 'No.', time: '16:10' }
+        ],
+        visibility: { progression: 30 }
+    },
+    {
+        id: 'c_a2_31',
+        name: 'M. Aris',
+        avatar: 'MA',
+        role: 'Procurement (EU-West)',
+        lastText: 'Bowman?',
+        messages: [
+            { sender: 'M. Aris', text: 'David, the 9003 scaling shows 22kg over again. Venn said to ignore, but the total variance #4112 is hitting the cap.', time: '17:20' },
+            { sender: 'M. Aris', text: 'You there?', time: '18:15' },
+            { sender: 'M. Aris', text: 'David?', time: '09:00' }
         ],
         visibility: { archiveAccessed: true }
-    },
-    {
-        id: 'chat_c_02',
-        name: 'IT Support',
-        messages: [
-            { sender: 'Tech 1', text: 'Where’s Bowman? His station is clear. Even his mug is gone.', time: '08:15 AM' },
-            { sender: 'Tech 2', text: 'Status says Reassigned. Don’t ask. Just move his tickets to the queue.', time: '08:20 AM' }
-        ],
-        visibility: { progression: 50 }
-    },
-    {
-        id: 'chat_c_03',
-        name: 'HR Automation',
-        messages: [
-            { sender: 'HR Admin', text: 'Is the Bowman removal finalized?', time: '09:00 AM' },
-            { sender: 'System', text: 'Protocol OMEGA-9. Status: REMOVED. Trace: NONE.', time: '09:05 AM' }
-        ],
-        visibility: { progression: 60 }
-    },
-    {
-        id: 'chat_c_04', name: 'Unknown User', messages: [
-            { sender: 'Unknown', text: 'He left the archive. He thought he was smart.', time: '11:00 PM' },
-            { sender: 'Unknown', text: 'The Bait is set.', time: '11:05 PM' }
-        ], visibility: { archiveAccessed: true }
-    },
-    {
-        id: 'chat_c_05', name: 'System', messages: [
-            { sender: 'System', text: 'Daily Attrition Report: 12 REMOVED. 0 ACTIVE.', time: '08:00 AM' }
-        ], visibility: { progression: 70 }
     }
 ];

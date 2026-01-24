@@ -35,8 +35,23 @@ export const createProgressionState = () => ({
     userClearance: 'AUDIT_L1',
     archiveAccessed: false,
     internalClassification: 'OBSERVER',
-    notepadVisible: false
+    notepadVisible: false,
+    notepadEntries: [], // Array of string entries (plain text)
+    unlockedNotepadTriggers: [], // Array of trigger IDs to prevent double unlocking
+    tracesFound: [] // Array of trace IDs (names or numbers) discovered
 });
+
+/**
+ * Unlock a notepad entry
+ */
+export const unlockNotepadEntry = (state, triggerId, text) => {
+    if (state.unlockedNotepadTriggers.includes(triggerId)) return state;
+    return {
+        ...state,
+        unlockedNotepadTriggers: [...state.unlockedNotepadTriggers, triggerId],
+        notepadEntries: [...state.notepadEntries, text]
+    };
+};
 
 /**
  * Record clue found
@@ -147,5 +162,16 @@ export const setNotepadVisible = (state, visible) => {
     return {
         ...state,
         notepadVisible: visible
+    };
+};
+
+/**
+ * Record a trace found (name or numeric pattern)
+ */
+export const recordTrace = (state, traceId) => {
+    if (state.tracesFound.includes(traceId)) return state;
+    return {
+        ...state,
+        tracesFound: [...state.tracesFound, traceId]
     };
 };

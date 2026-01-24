@@ -29,6 +29,7 @@ import SystemDenialView from './ui/shared/SystemDenialView.jsx';
 import { ACT2_CHATS } from './data/messages/act2_chats.js';
 import { ACT2_EMAILS } from './data/messages/act2_emails.js';
 import NotepadWidget from './ui/widgets/NotepadWidget.jsx';
+import { STASH_FILES } from './data/documents/stash_files.js';
 
 
 const CorporatePortal = () => {
@@ -83,7 +84,6 @@ const CorporatePortal = () => {
     const [keys, setKeys] = useState({ alpha: '', beta: '', gamma: '' });
     const [unlocked, setUnlocked] = useState(false);
     const [shake, setShake] = useState(false);
-    const [notepadNotes, setNotepadNotes] = useState([]);
     const [chatHistory, setChatHistory] = useState([
         {
             id: 'sarah-kone',
@@ -245,6 +245,101 @@ const CorporatePortal = () => {
         }
     }, [activeTab, user, shownMessageIds, state.progression.userClearance, addChatPing]);
 
+    // --- ACT II: NOTEPAD TRIGGER LOGIC ---
+    useEffect(() => {
+        const checkDavid = (u) => u?.id === '9000' || u?.role?.toUpperCase() === 'SYSADMIN';
+        const isDavid = checkDavid(user) || checkDavid(originalUser);
+
+        if (!isDavid || !selectedChatId) return;
+
+        // Map chat IDs to notepad triggers
+        const triggerMap = {
+            'it-support': 'c_a2_01',
+            'it-support-archives': 'c_a2_03', // New chat ID for archives
+            'sysadmin-west': 'c_a2_02',
+            'facilities-z7': 'c_a2_10',
+            'facilities-log': 'c_a2_12',
+            'bio-lab-s7': 'c_a2_11',
+            'hr-automation': 'c_a2_20',
+            'hr-reassignment': 'c_a2_22',
+            'facilities-ops': 'c_a2_21',
+            'isaac-clarke': 'c_a2_30',
+            'm-aris': 'c_a2_31',
+            'm-aris-final': 'c_a2_32'
+        };
+
+        const trigger = triggerMap[selectedChatId];
+        if (trigger) {
+            actions.unlockNotepadEntry(trigger);
+        }
+    }, [selectedChatId, user, originalUser, actions]);
+
+    // --- ACT II: DOCUMENT TRIGGER LOGIC ---
+    useEffect(() => {
+        const checkDavid = (u) => u?.id === '9000' || u?.role?.toUpperCase() === 'SYSADMIN';
+        const isDavid = checkDavid(user) || checkDavid(originalUser);
+
+        if (isDavid && vaultUnlocked) {
+            actions.unlockNotepadEntry('doc_attrition');
+        }
+    }, [vaultUnlocked, user, originalUser, actions]);
+    useEffect(() => {
+        if (selectedMessage) {
+            const TRACE_MAP = {
+                // Harold Venn Traces
+                'e_a2_02': 'VENN', 'e_a2_05': 'VENN', 'e_a2_06': 'VENN', 'e_a2_07': 'VENN',
+                // Mira Solanki Traces
+                'e_a2_10': 'SOLANKI', 'e_a2_11': 'SOLANKI', 'e_a2_12': 'SOLANKI',
+                // Thomas Reed Traces
+                'e_a2_03': 'REED', 'e_a2_09': 'REED', 'e_a2_20': 'REED',
+                // Elena Kovacs Traces
+                'e_a2_13': 'KOVACS', 'e_a2_14': 'KOVACS', 'e_a2_21': 'KOVACS',
+                // System ID 4112 Traces
+                'e_a2_04': '4112', 'e_a2_22': '4112', 'e_a2_23': '4112', 'e_a2_25': '4112', 'e_a2_28': '4112'
+            };
+
+            const traceId = TRACE_MAP[selectedMessage.id];
+            if (traceId) {
+                actions.recordTrace(traceId);
+            }
+        }
+    }, [selectedMessage, actions]);
+
+    // --- ACT II: NOTEPAD PACING LOGIC ---
+    useEffect(() => {
+        const checkDavid = (u) => u?.id === '9000' || u?.role?.toUpperCase() === 'SYSADMIN';
+        const isDavid = checkDavid(user) || checkDavid(originalUser);
+
+        if (!isDavid) {
+            setNotepadNotes([]);
+            return;
+        }
+
+        const traceCount = state.progression.tracesFound?.length || 0;
+        const entries = [
+            "Log verification ongoing. All reclassifications must be grounded in facilities occupancy.", // 0: Baseline
+            "Counts don’t match. Different departments. Same numbers.", // 1
+            "If access disappears, correlation remains.", // 2
+            "3124. 4410. 5021. They cluster by approval, not department.", // 3
+            "Someone is reclassifying after the fact. Personnel status ACTIVE -> REMOVED.", // 4
+            "The system doesn't answer to names. It answers to a habit.", // 5
+            "4112. It's in the auth logs. It's in the variance signatures.", // 6
+            "Pattern: 4112. Standard HQ protocol? Habit or system?", // 7
+            "If you are reading this, I was already gone.", // 8
+            "Do not finish what I started. Correlation is context. Scale is everything.", // 9
+        ];
+
+        let activeEntries = [entries[0]];
+        if (traceCount >= 1) activeEntries.push(entries[1]);
+        if (traceCount >= 2) activeEntries.push(entries[2]);
+        if (traceCount >= 3) activeEntries.push(entries[3], entries[4]);
+        if (traceCount >= 4) activeEntries.push(entries[5]);
+        if (traceCount >= 5) activeEntries.push(entries[6], entries[7]);
+        if (state.progression.archiveAccessed) activeEntries.push(entries[8], entries[9]);
+
+        setNotepadNotes(activeEntries);
+    }, [state.progression.tracesFound, state.progression.archiveAccessed, user, originalUser]);
+
     const handleTabChange = (newTab) => {
         setActiveTab(newTab);
         setSelectedMessage(null);
@@ -294,7 +389,15 @@ const CorporatePortal = () => {
             return;
         }
 
-        setUser({ ...targetUser, id });
+        // Successful login path
+        let userData = { ...targetUser, id };
+
+        // SILENT STATUS FLIP: David Bowman (9000)
+        if (id === '9000' && state.progression.archiveAccessed) {
+            userData.status = "REMOVED";
+        }
+
+        setUser(userData);
         setCurrentView('portal');
         handleTabChange('dashboard');
         setLoginError('');
@@ -393,15 +496,20 @@ const CorporatePortal = () => {
         const parts = cmd.split(' ');
         const newOutput = [...termOutput, `> ${termInput}`];
 
+        // Terminal Constants
+        const SYSTEM_PATH = '/sys/.vault/.correlation_index/';
+        const SYSTEM_ID = '4112';
+        const SYSTEM_PASS = 'Omni4112';
+
         if (cmd === 'help') {
-            actions.runTerminalCommand('help');
-            newOutput.push("COMMANDS:", "  scan_network        - View active nodes", "  list_users          - Show active badge IDs", "  ssh [badge_id]      - Remote login to user profile");
+            newOutput.push("OMNICORP SYSTEM TERMINAL v4.1", "COMMANDS:", "  scan_network        - View active nodes", "  list_users          - Show active badge IDs", "  ssh [badge_id]      - Remote login to user profile");
         } else if (cmd === 'scan_network') {
-            actions.runTerminalCommand('scan_network');
-            newOutput.push("Scanning...", "Node-666 [CRITICAL] - Sector 7", "Node-001 [ONLINE] - Mainframe");
+            newOutput.push("Scanning network infrastructure...", "Node-01 [HQ] - ONLINE", "Node-06 [EU-W] - ONLINE (Sync 4112)", "Node-07 [NA] - STANDBY", "Node-08 [EU-C] - HIGH LOAD");
+        } else if (cmd === 'verify 4112') {
+            newOutput.push("Verifying sync signature 4112...", "SOURCE: NODE-06", "RESULT: MATCH_FOUND", "TYPE: PERSISTENT_RESIDUE");
+            actions.unlockNotepadEntry('term_verify_4112');
         } else if (cmd === 'list_users') {
-            actions.runTerminalCommand('list_users');
-            newOutput.push("ACTIVE SESSIONS:", "  9000 - SYSADMIN (You)", "  1998 - G. FREEMAN", "  1001 - I. CLARKE", "  4492 - P. VANCE", "  7331 - J. HALPERT");
+            newOutput.push("ACTIVE SESSIONS:", "  9000 - David Bowman (SYSADMIN)", "  3124 - Harold Venn (RE-OPS)", "  4410 - Mira Solanki (COMPLIANCE)", "  5021 - Thomas Reed (INFRA-EX)");
         } else if (parts[0] === 'ssh') {
             const targetId = parts[1];
             if (USER_DB[targetId]) {
@@ -409,67 +517,77 @@ const CorporatePortal = () => {
                 setOriginalUser(user);
                 setUser({ ...USER_DB[targetId], id: targetId });
                 handleTabChange('dashboard');
-
-                // Act II: If accessing Bowman's residue
-                if (targetId === '9000') {
-                    setNotepadNotes([
-                        "If this is being read, I failed.",
-                        "They don’t secure data. They secure people.",
-                        "Archive still exists. They won’t delete it. They need it.",
-                        "System ID is not a name. Password is not a word. Think classification, not identity.",
-                        "If you got this far, you already crossed the line."
-                    ]);
-                }
-
                 setTermInput('');
                 return;
             } else {
-                newOutput.push(`Error: User ${targetId} not found or access denied.`);
+                newOutput.push(`Error: Identity ${targetId} not verified in current cluster.`);
             }
-        } else if (cmd === '/sys/.vault/.correlation_index') {
+        } else if (cmd === SYSTEM_PATH.slice(0, -1) || cmd === SYSTEM_PATH) {
             // SILENT LOG: Archive attempt
             actions.runTerminalCommand('access_archive_attempt');
-            newOutput.push("ACCESS DENIED: Credentials Required.");
-            newOutput.push("SYSTEM ID:");
-        } else if (termOutput[termOutput.length - 1] === "SYSTEM ID:") {
-            if (termInput.trim().toUpperCase() === 'SYS_CLASS_L3_ARCHIVE') {
+            newOutput.push("SECURE ARCHIVE DETECTED.", "CREDENTIALS REQUIRED.", "ENTER SYSTEM ID:");
+        } else if (termOutput[termOutput.length - 1] === "ENTER SYSTEM ID:") {
+            if (termInput.trim() === SYSTEM_ID) {
                 newOutput.push("> " + termInput);
-                newOutput.push("CORRECT. ENTER PASSWORD:");
+                newOutput.push("SYSTEM ID VERIFIED. ENTER PASSWORD:");
             } else {
                 newOutput.push("> " + termInput);
-                newOutput.push("INVALID SYSTEM ID. ACCESS DENIED.");
+                newOutput.push("IDENTITY UNAUTHORIZED. ACCESS DENIED.");
             }
-        } else if (termOutput[termOutput.length - 1] === "CORRECT. ENTER PASSWORD:") {
-            if (termInput.trim().toUpperCase() === 'EXPECTED_VARIANCE') {
+        } else if (termOutput[termOutput.length - 1] === "SYSTEM ID VERIFIED. ENTER PASSWORD:") {
+            if (termInput.trim() === SYSTEM_PASS) {
                 newOutput.push("> " + "*".repeat(termInput.length));
-                newOutput.push("ACCESS GRANTED. OPENING ARCHIVE...");
-                newOutput.push("Files found:", "  correlation_index.txt", "  README_LAST.txt");
-                // SILENT STATE TRANSITION
-                actions.recordArchiveAccessed();
-            } else {
-                newOutput.push("> " + "*".repeat(termInput.length));
-                newOutput.push("INVALID PASSWORD. ACCESS DENIED.");
-            }
-        } else if (cmd === 'cat correlation_index.txt') {
-            newOutput.push("[OMNICORP CORRELATION INDEX]");
-            newOutput.push("FACILITY_ID | EMP_ID | ROLE | STATUS");
-            newOutput.push("SEC7_BETA   | 4412   | ENG  | REMOVED");
-            newOutput.push("SEC7_ALPHA  | 1120   | OPS  | REMOVED");
-            newOutput.push("NODE_666    | 8821   | R&D  | UNKNOWN");
-            newOutput.push("CENTRAL_HQ  | 9000   | SYS  | REMOVED");
-        } else if (cmd === 'cat readme_last.txt') {
-            newOutput.push("README_LAST.txt", "----------------");
-            newOutput.push("If you are reading this, you already know this isn’t a mistake.");
-            newOutput.push("They won’t stop. They can’t stop.");
-            newOutput.push("I thought evidence mattered. It doesn’t.");
-            newOutput.push("If you still have a choice: RUN. LEAVE. DON’T COME BACK.");
-            newOutput.push("If you don’t: I’m sorry.");
-            // SILENT TRANSITION TO PARTICIPANT
-            actions.recordArchiveAccessed();
-        } else {
-            newOutput.push("Command not recognized.");
-        }
+                newOutput.push("ACCESS GRANTED. INDEXING FRAGMENTS...");
 
+                // Track Archive Accessed
+                actions.recordArchiveAccessed();
+
+                // Trigger Final Notepad Entry
+                actions.unlockNotepadEntry('STASH_ACCESS');
+
+                const availableFiles = ['README_FIRST.txt', 'open_questions.txt'];
+                const traceCount = state.progression.tracesFound.length;
+                if (traceCount >= 3) availableFiles.push('subordinate_map.txt');
+                if (traceCount >= 6) availableFiles.push('l1_clusters.txt');
+                // final_note is only after a specific flag or just always at the end? 
+                // Spec say: "only after full credential puzzle completion" - which is now.
+                availableFiles.push('final_note.txt');
+
+                newOutput.push("Files indexed:", ...availableFiles.map(f => `  ${f}`));
+            } else {
+                newOutput.push("> " + "*".repeat(termInput.length));
+                newOutput.push("PASSWORD INVALID. SILENT LOG TRIGGERED.");
+            }
+        } else if (parts[0] === 'cat') {
+            const fileName = parts[1];
+            if (state.progression.archiveAccessed) {
+                const STASH = STASH_FILES;
+                if (STASH[fileName]) {
+                    // Check Gating
+                    const traceCount = (state.progression.tracesFound || []).length;
+                    let allowed = true;
+                    if (fileName === 'subordinate_map.txt' && traceCount < 3) allowed = false;
+                    if (fileName === 'l1_clusters.txt' && traceCount < 6) allowed = false;
+
+                    if (allowed) {
+                        newOutput.push(`FILE: ${fileName}`, "----------------", STASH[fileName]);
+
+                        // Notepad triggers for reading specific files
+                        if (fileName === 'l1_clusters.txt') actions.unlockNotepadEntry('doc_attrition');
+                        if (fileName === 'final_note.txt') actions.unlockNotepadEntry('late_realization');
+                        if (fileName === 'open_questions.txt') actions.unlockNotepadEntry('contradiction_check');
+                    } else {
+                        newOutput.push(`ERROR: Insufficient context to decrypt metadata correlation for ${fileName}. Found ${traceCount}/6 traces.`);
+                    }
+                } else {
+                    newOutput.push(`Error: File ${fileName} not found.`);
+                }
+            } else {
+                newOutput.push("Error: Filesystem access restricted.");
+            }
+        } else {
+            newOutput.push("System trace complete. No command match.");
+        }
         setTermOutput(newOutput);
         setTermInput('');
     };
@@ -505,7 +623,12 @@ const CorporatePortal = () => {
     // --- RENDER SECTIONS ---
 
     const renderDashboard = () => {
-        const props = { user, onTabChange: handleTabChange, onLogout: handleLogout };
+        const props = {
+            user,
+            onTabChange: handleTabChange,
+            onLogout: handleLogout,
+            notes: state.progression.notepadEntries
+        };
 
         switch (user.role) {
             case ROLES.AUDITOR:
@@ -847,7 +970,10 @@ const CorporatePortal = () => {
                                     onClick={() => {
                                         setSelectedMessage(msg);
                                         if (msg.deleted) actions.readDeletedMessage();
-                                        if (msg.id.toString().startsWith('email_')) actions.recordDocumentViewed(msg.id);
+                                        const idStr = msg.id.toString();
+                                        if (idStr.startsWith('email_') || idStr.startsWith('e_a2_')) {
+                                            actions.recordDocumentViewed(msg.id);
+                                        }
                                     }}
                                     className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${msg.deleted ? 'bg-red-50 hover:bg-red-100' : ''} ${msg.isNew ? 'bg-blue-50 border-l-4 border-blue-500' : ''}`}
                                 >
@@ -876,15 +1002,20 @@ const CorporatePortal = () => {
         const availableChats = [
             ...chatHistory,
             ...ACT2_CHATS.filter(c => {
+                const checkSysAdmin = (u) => u?.role?.toUpperCase() === 'SYSADMIN' || u?.id === '9000';
+                const isSysAdmin = checkSysAdmin(user) || checkSysAdmin(originalUser);
+
+                if (isSysAdmin) return true; // SysAdmin sees all Act II chats
+
                 const clearanceValue = getClearanceLevel(user.clearance || 'L1');
                 const requiredClearance = c.visibility.clearance ? getClearanceLevel(c.visibility.clearance) : 0;
 
                 if (c.visibility.clearance && clearanceValue < requiredClearance) return false;
                 if (c.visibility.archiveAccessed && !state.progression.archiveAccessed) return false;
 
-                // Simple progression check: using total document views as proxy for progression here
-                const docViews = state.behaviorFlags?.documentsViewed?.length || 0;
-                if (c.visibility.progression && docViews < (c.visibility.progression / 10)) return false;
+                // Progression check: using tracesFound count
+                const tracesFound = state.progression.tracesFound?.length || 0;
+                if (c.visibility.progression !== undefined && tracesFound < (c.visibility.progression / 5)) return false;
 
                 return true;
             })
@@ -1299,6 +1430,70 @@ const CorporatePortal = () => {
     const headerTheme = isOverseer ? 'bg-red-900/20 border-red-900' : (isRemote ? 'bg-indigo-900 border-indigo-700 text-white' : 'bg-white border-gray-300');
     const accentColor = isOverseer ? 'text-red-500' : (isRemote ? 'text-white' : 'text-blue-700');
 
+    const renderActiveTab = () => {
+        switch (activeTab) {
+            case 'dashboard': return renderDashboard();
+            case 'finance':
+                return hasModuleAccess(user, 'finance') ?
+                    renderFinance() :
+                    <SystemDenialView
+                        reason="Financial Data Restricted"
+                        clearanceRequired="L2 (DELEGATED_ACCESS)"
+                        onBack={() => handleTabChange('dashboard')}
+                    />;
+            case 'messages':
+                return hasModuleAccess(user, 'messages') ?
+                    renderMessages() :
+                    <SystemDenialView
+                        reason="Correspondence Restricted"
+                        clearanceRequired="L1 (INTERNAL_ACCESS)"
+                        onBack={() => handleTabChange('dashboard')}
+                    />;
+            case 'chat':
+                return hasModuleAccess(user, 'chat') ?
+                    renderChat() :
+                    <SystemDenialView
+                        reason="Communication Channel Locked"
+                        clearanceRequired="L1 (INTERNAL_ACCESS)"
+                        onBack={() => handleTabChange('dashboard')}
+                    />;
+            case 'terminal':
+                return hasModuleAccess(user, 'terminal') ?
+                    renderTerminal() :
+                    <SystemDenialView
+                        reason="Terminal Access Denied"
+                        clearanceRequired="L2 (SYSADMIN_CREDENTIALS)"
+                        onBack={() => handleTabChange('dashboard')}
+                    />;
+            case 'documents':
+                return hasModuleAccess(user, 'documents') ?
+                    renderDocuments() :
+                    <SystemDenialView
+                        reason="Secure Archives Locked"
+                        clearanceRequired="L3 (EXECUTIVE_ACCESS)"
+                        onBack={() => handleTabChange('dashboard')}
+                    />;
+            case 'directory': return renderDirectory();
+            case 'infrastructure':
+                return hasModuleAccess(user, 'infrastructure') ?
+                    renderInfrastructure() :
+                    <SystemDenialView
+                        reason="Critical Infrastructure Locked"
+                        clearanceRequired="L2 (ENGINEERING_CLEARANCE)"
+                        onBack={() => handleTabChange('dashboard')}
+                    />;
+            case 'history': return renderHistory();
+            case 'restricted':
+                return isOverseer ?
+                    renderRestricted() :
+                    <SystemDenialView
+                        reason="OMEGA PROTOCOL RESTRICTED"
+                        clearanceRequired="L-OMEGA"
+                        onBack={() => handleTabChange('dashboard')}
+                    />;
+            default: return renderDashboard();
+        }
+    };
 
 
     return (
@@ -1379,82 +1574,26 @@ const CorporatePortal = () => {
                 </aside>
 
                 {/* MAIN CONTENT */}
-                <main className="flex-1 overflow-y-auto bg-gray-50 w-full">
-                    {activeTab === 'dashboard' && renderDashboard()}
+                <main className="flex-1 overflow-y-auto bg-gray-50 no-scrollbar">
+                    {(() => {
+                        const checkDavid = (u) => u?.id === '9000' || u?.role?.toUpperCase() === 'SYSADMIN';
+                        const isDavid = checkDavid(user) || checkDavid(originalUser);
 
-                    {activeTab === 'finance' && (
-                        hasModuleAccess(user, 'finance') ?
-                            renderFinance() :
-                            <SystemDenialView
-                                reason="Financial Data Restricted"
-                                clearanceRequired="L2 (DELEGATED_ACCESS)"
-                                onBack={() => handleTabChange('dashboard')}
-                            />
-                    )}
+                        if (isDavid) {
+                            return (
+                                <div className="grid grid-cols-1 md:grid-cols-4 h-full overflow-hidden">
+                                    <div className="md:col-span-3 h-full overflow-y-auto no-scrollbar">
+                                        {renderActiveTab()}
+                                    </div>
+                                    <div className="md:col-span-1 border-l border-gray-200 bg-white h-full flex flex-col overflow-hidden">
+                                        <NotepadWidget notes={state.progression.notepadEntries} />
+                                    </div>
+                                </div>
+                            );
+                        }
 
-                    {activeTab === 'messages' && (
-                        hasModuleAccess(user, 'messages') ?
-                            renderMessages() :
-                            <SystemDenialView
-                                reason="Correspondence Restricted"
-                                clearanceRequired="L1 (INTERNAL_ACCESS)"
-                                onBack={() => handleTabChange('dashboard')}
-                            />
-                    )}
-
-                    {activeTab === 'chat' && (
-                        hasModuleAccess(user, 'chat') ?
-                            renderChat() :
-                            <SystemDenialView
-                                reason="Communication Channel Locked"
-                                clearanceRequired="L1 (INTERNAL_ACCESS)"
-                                onBack={() => handleTabChange('dashboard')}
-                            />
-                    )}
-
-                    {activeTab === 'terminal' && (
-                        hasModuleAccess(user, 'terminal') ?
-                            renderTerminal() :
-                            <SystemDenialView
-                                reason="Terminal Access Denied"
-                                clearanceRequired="L2 (SYSADMIN_CREDENTIALS)"
-                                onBack={() => handleTabChange('dashboard')}
-                            />
-                    )}
-
-                    {activeTab === 'documents' && (
-                        hasModuleAccess(user, 'documents') ?
-                            renderDocuments() :
-                            <SystemDenialView
-                                reason="Secure Archives Locked"
-                                clearanceRequired="L3 (EXECUTIVE_ACCESS)"
-                                onBack={() => handleTabChange('dashboard')}
-                            />
-                    )}
-
-                    {activeTab === 'directory' && renderDirectory()}
-
-                    {activeTab === 'infrastructure' && (
-                        hasModuleAccess(user, 'infrastructure') ?
-                            renderInfrastructure() :
-                            <SystemDenialView
-                                reason="Critical Infrastructure Locked"
-                                clearanceRequired="L2 (ENGINEERING_CLEARANCE)"
-                                onBack={() => handleTabChange('dashboard')}
-                            />
-                    )}
-
-                    {activeTab === 'history' && renderHistory()}
-
-                    {activeTab === 'restricted' && (
-                        isOverseer ?
-                            renderRestricted() :
-                            <SystemDenialView
-                                reason="OMEGA PROTOCOL RESTRICTED"
-                                clearanceRequired="L-OMEGA"
-                                onBack={() => handleTabChange('dashboard')}
-                            />
-                    )}
+                        return renderActiveTab();
+                    })()}
                 </main>
             </div>
 
