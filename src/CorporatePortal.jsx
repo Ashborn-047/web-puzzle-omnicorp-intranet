@@ -305,40 +305,6 @@ const CorporatePortal = () => {
         }
     }, [selectedMessage, actions]);
 
-    // --- ACT II: NOTEPAD PACING LOGIC ---
-    useEffect(() => {
-        const checkDavid = (u) => u?.id === '9000' || u?.role?.toUpperCase() === 'SYSADMIN';
-        const isDavid = checkDavid(user) || checkDavid(originalUser);
-
-        if (!isDavid) {
-            setNotepadNotes([]);
-            return;
-        }
-
-        const traceCount = state.progression.tracesFound?.length || 0;
-        const entries = [
-            "Log verification ongoing. All reclassifications must be grounded in facilities occupancy.", // 0: Baseline
-            "Counts don’t match. Different departments. Same numbers.", // 1
-            "If access disappears, correlation remains.", // 2
-            "3124. 4410. 5021. They cluster by approval, not department.", // 3
-            "Someone is reclassifying after the fact. Personnel status ACTIVE -> REMOVED.", // 4
-            "The system doesn't answer to names. It answers to a habit.", // 5
-            "4112. It's in the auth logs. It's in the variance signatures.", // 6
-            "Pattern: 4112. Standard HQ protocol? Habit or system?", // 7
-            "If you are reading this, I was already gone.", // 8
-            "Do not finish what I started. Correlation is context. Scale is everything.", // 9
-        ];
-
-        let activeEntries = [entries[0]];
-        if (traceCount >= 1) activeEntries.push(entries[1]);
-        if (traceCount >= 2) activeEntries.push(entries[2]);
-        if (traceCount >= 3) activeEntries.push(entries[3], entries[4]);
-        if (traceCount >= 4) activeEntries.push(entries[5]);
-        if (traceCount >= 5) activeEntries.push(entries[6], entries[7]);
-        if (state.progression.archiveAccessed) activeEntries.push(entries[8], entries[9]);
-
-        setNotepadNotes(activeEntries);
-    }, [state.progression.tracesFound, state.progression.archiveAccessed, user, originalUser]);
 
     const handleTabChange = (newTab) => {
         setActiveTab(newTab);
@@ -947,7 +913,7 @@ const CorporatePortal = () => {
                         const allMessages = [
                             ...inboxMessages,
                             ...(user.messages || []),
-                            ...ACT2_EMAILS.filter(e => {
+                            ...ACT2_EMAILS.filter(() => {
                                 // Volume logic: show if progression > 20 or if user is SysAdmin
                                 if (originalUser?.role === 'SYSADMIN' || user.role === 'SYSADMIN') return true;
                                 if (state.progression.archiveAccessed) return true;
