@@ -25,6 +25,11 @@ import RnDDashboard from './ui/dashboards/RnDDashboard.jsx';
 import ManagementDashboard from './ui/dashboards/ManagementDashboard.jsx';
 import SystemDenialView from './ui/shared/SystemDenialView.jsx';
 
+// Act II Data & Components
+import { ACT2_CHATS } from './data/messages/act2_chats.js';
+import { ACT2_EMAILS } from './data/messages/act2_emails.js';
+import NotepadWidget from './ui/widgets/NotepadWidget.jsx';
+
 
 const CorporatePortal = () => {
     const { state, actions } = useGameState();
@@ -78,6 +83,7 @@ const CorporatePortal = () => {
     const [keys, setKeys] = useState({ alpha: '', beta: '', gamma: '' });
     const [unlocked, setUnlocked] = useState(false);
     const [shake, setShake] = useState(false);
+    const [notepadNotes, setNotepadNotes] = useState([]);
     const [chatHistory, setChatHistory] = useState([
         {
             id: 'sarah-kone',
@@ -403,11 +409,63 @@ const CorporatePortal = () => {
                 setOriginalUser(user);
                 setUser({ ...USER_DB[targetId], id: targetId });
                 handleTabChange('dashboard');
+
+                // Act II: If accessing Bowman's residue
+                if (targetId === '9000') {
+                    setNotepadNotes([
+                        "If this is being read, I failed.",
+                        "They don’t secure data. They secure people.",
+                        "Archive still exists. They won’t delete it. They need it.",
+                        "System ID is not a name. Password is not a word. Think classification, not identity.",
+                        "If you got this far, you already crossed the line."
+                    ]);
+                }
+
                 setTermInput('');
                 return;
             } else {
                 newOutput.push(`Error: User ${targetId} not found or access denied.`);
             }
+        } else if (cmd === '/sys/.vault/.correlation_index') {
+            // SILENT LOG: Archive attempt
+            actions.runTerminalCommand('access_archive_attempt');
+            newOutput.push("ACCESS DENIED: Credentials Required.");
+            newOutput.push("SYSTEM ID:");
+        } else if (termOutput[termOutput.length - 1] === "SYSTEM ID:") {
+            if (termInput.trim().toUpperCase() === 'SYS_CLASS_L3_ARCHIVE') {
+                newOutput.push("> " + termInput);
+                newOutput.push("CORRECT. ENTER PASSWORD:");
+            } else {
+                newOutput.push("> " + termInput);
+                newOutput.push("INVALID SYSTEM ID. ACCESS DENIED.");
+            }
+        } else if (termOutput[termOutput.length - 1] === "CORRECT. ENTER PASSWORD:") {
+            if (termInput.trim().toUpperCase() === 'EXPECTED_VARIANCE') {
+                newOutput.push("> " + "*".repeat(termInput.length));
+                newOutput.push("ACCESS GRANTED. OPENING ARCHIVE...");
+                newOutput.push("Files found:", "  correlation_index.txt", "  README_LAST.txt");
+                // SILENT STATE TRANSITION
+                actions.recordArchiveAccessed();
+            } else {
+                newOutput.push("> " + "*".repeat(termInput.length));
+                newOutput.push("INVALID PASSWORD. ACCESS DENIED.");
+            }
+        } else if (cmd === 'cat correlation_index.txt') {
+            newOutput.push("[OMNICORP CORRELATION INDEX]");
+            newOutput.push("FACILITY_ID | EMP_ID | ROLE | STATUS");
+            newOutput.push("SEC7_BETA   | 4412   | ENG  | REMOVED");
+            newOutput.push("SEC7_ALPHA  | 1120   | OPS  | REMOVED");
+            newOutput.push("NODE_666    | 8821   | R&D  | UNKNOWN");
+            newOutput.push("CENTRAL_HQ  | 9000   | SYS  | REMOVED");
+        } else if (cmd === 'cat readme_last.txt') {
+            newOutput.push("README_LAST.txt", "----------------");
+            newOutput.push("If you are reading this, you already know this isn’t a mistake.");
+            newOutput.push("They won’t stop. They can’t stop.");
+            newOutput.push("I thought evidence mattered. It doesn’t.");
+            newOutput.push("If you still have a choice: RUN. LEAVE. DON’T COME BACK.");
+            newOutput.push("If you don’t: I’m sorry.");
+            // SILENT TRANSITION TO PARTICIPANT
+            actions.recordArchiveAccessed();
         } else {
             newOutput.push("Command not recognized.");
         }
@@ -763,18 +821,33 @@ const CorporatePortal = () => {
                 <div className="bg-white border rounded-lg shadow-sm flex-1 overflow-y-auto divide-y">
                     {/* Combine dynamic inbox messages with static user messages */}
                     {(() => {
-                        const allMessages = [...inboxMessages, ...(user.messages || [])];
+                        const allMessages = [
+                            ...inboxMessages,
+                            ...(user.messages || []),
+                            ...ACT2_EMAILS.filter(e => {
+                                // Volume logic: show if progression > 20 or if user is SysAdmin
+                                if (originalUser?.role === 'SYSADMIN' || user.role === 'SYSADMIN') return true;
+                                if (state.progression.archiveAccessed) return true;
+                                return false; // Default: hide Act II emails until triggered
+                            })
+                        ];
                         if (allMessages.length === 0) {
                             return <div className="p-8 text-center text-gray-400 italic">No messages found on server.</div>;
                         }
                         return allMessages.map((msg) => {
                             if (msg.deleted && !isSysAdminUser && !isOverseer) return null;
+
+                            // Link availability logic
+                            const hasLink = msg.links && msg.links.length > 0;
+                            const isLinkActive = hasLink && msg.links[0].status !== 'UNAVAILABLE' && msg.links[0].status !== 'REDACTED';
+
                             return (
                                 <div
                                     key={msg.id}
                                     onClick={() => {
                                         setSelectedMessage(msg);
                                         if (msg.deleted) actions.readDeletedMessage();
+                                        if (msg.id.toString().startsWith('email_')) actions.recordDocumentViewed(msg.id);
                                     }}
                                     className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${msg.deleted ? 'bg-red-50 hover:bg-red-100' : ''} ${msg.isNew ? 'bg-blue-50 border-l-4 border-blue-500' : ''}`}
                                 >
@@ -786,6 +859,7 @@ const CorporatePortal = () => {
                                         {msg.isNew && <span className="text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded">NEW</span>}
                                         {msg.subject}
                                         {msg.deleted && <Trash2 size={12} className="text-red-500" />}
+                                        {hasLink && !isLinkActive && <span className="text-[10px] bg-gray-200 text-gray-500 px-1 rounded">BROKEN LINK</span>}
                                     </div>
                                     <p className="text-xs text-gray-500 truncate">{msg.body}</p>
                                 </div>
@@ -798,31 +872,49 @@ const CorporatePortal = () => {
     };
 
     const renderChat = () => {
-        const activeChat = chatHistory.find(c => c.id === selectedChatId) || chatHistory[0];
+        // Soft-gated chat selection
+        const availableChats = [
+            ...chatHistory,
+            ...ACT2_CHATS.filter(c => {
+                const clearanceValue = getClearanceLevel(user.clearance || 'L1');
+                const requiredClearance = c.visibility.clearance ? getClearanceLevel(c.visibility.clearance) : 0;
+
+                if (c.visibility.clearance && clearanceValue < requiredClearance) return false;
+                if (c.visibility.archiveAccessed && !state.progression.archiveAccessed) return false;
+
+                // Simple progression check: using total document views as proxy for progression here
+                const docViews = state.behaviorFlags?.documentsViewed?.length || 0;
+                if (c.visibility.progression && docViews < (c.visibility.progression / 10)) return false;
+
+                return true;
+            })
+        ];
+
+        const activeChat = availableChats.find(c => c.id === selectedChatId) || availableChats[0];
 
         return (
             <div className="flex h-full bg-white overflow-hidden animate-in fade-in">
                 {/* Chat Sidebar */}
                 <div className="w-1/4 min-w-[200px] border-r border-gray-100 flex flex-col bg-gray-50/30">
-                    <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-                        <h3 className="font-bold text-gray-800 text-sm tracking-tight uppercase">OmniConnect</h3>
+                    <div className="p-4 border-b bg-white">
+                        <h2 className="text-sm font-bold text-gray-800 uppercase tracking-widest flex items-center gap-2">
+                            <MessageSquare size={16} className="text-blue-600" /> Channels
+                        </h2>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-2 scrollbar-none">
+                    <div className="flex-1 overflow-y-auto p-2">
                         <div className="mb-4">
-                            <p className="px-2 mb-1 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Direct Messages</p>
-                            {chatHistory.map(chat => (
+                            <p className="px-2 mb-1 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Active Threads</p>
+                            {availableChats.map(chat => (
                                 <button
                                     key={chat.id}
                                     onClick={() => setSelectedChatId(chat.id)}
                                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all mb-1 ${selectedChatId === chat.id ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20' : 'text-gray-600 hover:bg-white'}`}
                                 >
-                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${selectedChatId === chat.id ? 'bg-blue-500' : 'bg-gray-200'}`}>
-                                        {chat.avatar}
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${selectedChatId === chat.id ? 'bg-blue-500' : 'bg-gray-200 text-gray-400'}`}>
+                                        {chat.avatar || chat.name.charAt(0)}
                                     </div>
                                     <div className="flex-1 text-left min-w-0 px-1">
-                                        <div className="flex justify-between items-center mb-0.5">
-                                            <p className="text-xs font-bold truncate">{chat.name}</p>
-                                        </div>
+                                        <p className="text-xs font-bold truncate">{chat.name}</p>
                                         <p className={`text-[10px] truncate ${selectedChatId === chat.id ? 'text-blue-100' : 'text-gray-400'}`}>{chat.lastText}</p>
                                     </div>
                                 </button>
@@ -836,62 +928,55 @@ const CorporatePortal = () => {
                     <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 font-bold">
-                                {activeChat.avatar}
+                                {activeChat.avatar || activeChat.name.charAt(0)}
                             </div>
                             <div>
                                 <h4 className="font-bold text-gray-900 leading-none mb-1">{activeChat.name}</h4>
-                                <p className="text-xs text-gray-400 font-medium">{activeChat.role} • Online</p>
+                                <p className="text-xs text-gray-400 font-medium">{activeChat.role || 'OmniCorp User'} • Online</p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                        {activeChat.messages.map((m, i) => (
-                            <div key={i} className="flex gap-4 group">
-                                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-400 shrink-0 self-start mt-1 group-hover:bg-blue-50 transition-colors">
-                                    {m.sender.charAt(0)}
-                                </div>
-                                <div className="space-y-1.5 max-w-[85%]">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xs font-bold text-gray-900">{m.sender}</span>
-                                        <span className="text-[10px] text-gray-400 font-medium">{m.time}</span>
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+                        {activeChat.messages.map((msg, idx) => (
+                            <div key={idx} className={`flex ${msg.sender === 'Temp Auditor' ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[80%] rounded-2xl p-4 shadow-sm ${msg.sender === 'Temp Auditor' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none'}`}>
+                                    <div className="flex justify-between items-center mb-1 gap-4">
+                                        <span className={`text-[10px] font-bold uppercase tracking-widest ${msg.sender === 'Temp Auditor' ? 'text-blue-100' : 'text-gray-400'}`}>{msg.sender}</span>
+                                        <span className={`text-[10px] ${msg.sender === 'Temp Auditor' ? 'text-blue-200' : 'text-gray-400'}`}>{msg.time}</span>
                                     </div>
-                                    <div className="p-3.5 bg-gray-50 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm transition-all hover:bg-gray-100/50">
-                                        <p className="text-sm text-gray-700 leading-relaxed font-medium">{m.text}</p>
-                                    </div>
+                                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
                                 </div>
                             </div>
                         ))}
+                        <div ref={messagesEndRef} />
                     </div>
 
-                    {/* Chat Input - Sim Version */}
-                    <div className="p-4 border-t border-gray-100 bg-gray-50/50">
-                        {preparedReplies.length > 0 ? (
-                            <div className="flex flex-wrap gap-2 animate-in slide-in-from-bottom-2 duration-300">
-                                {preparedReplies.map((reply, i) => (
-                                    <button
-                                        key={i}
-                                        onClick={() => sendQuickReply(reply)}
-                                        className="bg-white border border-blue-200 text-blue-700 px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-sm active:scale-95"
-                                    >
-                                        {reply}
-                                    </button>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="relative group">
-                                <input
-                                    disabled
-                                    className="w-full bg-white border border-gray-100 p-3.5 pl-5 rounded-xl text-xs italic text-gray-400 cursor-not-allowed shadow-inner"
-                                    placeholder="Waiting for incoming transmission..."
-                                />
-                                <div className="absolute right-4 top-2.5 flex items-center gap-1.5 text-gray-200">
-                                    <Zap size={18} />
-                                    <MessageSquare size={18} />
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                    {preparedReplies.length > 0 && (
+                        <div className="p-4 border-t bg-gray-50 flex flex-wrap gap-2 animate-in slide-in-from-bottom-2">
+                            {preparedReplies.map((reply, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => sendQuickReply(reply)}
+                                    className="px-4 py-2 bg-white border border-blue-200 text-blue-700 rounded-full text-xs font-bold hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-sm"
+                                >
+                                    {reply}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    <form onSubmit={(e) => { e.preventDefault(); }} className="p-4 border-t flex gap-3 bg-white">
+                        <input
+                            type="text"
+                            placeholder="Type a message..."
+                            className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 transition-all"
+                            disabled
+                        />
+                        <button type="button" className="p-2 bg-blue-600 text-white rounded-xl shadow-md opacity-50 cursor-not-allowed">
+                            <Send size={18} />
+                        </button>
+                    </form>
                 </div>
             </div>
         );

@@ -15,11 +15,13 @@ export const sysAdmin = {
     dept: "IT / Infra",
     role: "SYSADMIN",
     region: "HQ",
-    clearance: "L2",
+    clearance: "L3",
+    status: "REMOVED",
+    removalReason: "Reassignment pending internal review",
     permissions: ['dashboard', 'directory', 'terminal', 'infrastructure', 'history', 'messages'],
     messages: [
-        { id: 1, from: "Apex Solutions", subject: "Invoice Paid", body: "Payment received for 'Logistics Analysis'. The biomass has been delivered to Node 666.", date: "Today" },
-        { id: 2, from: "System", subject: "Alert", body: "SSH session detected from unexpected IP.", date: "Now" }
+        { id: 1, from: "Apex Solutions", subject: "Invoice Paid", body: "Payment received for 'Logistics Analysis'. The biomass has been delivered to Node 666.", date: "2026-05-10" },
+        { id: 2, from: "System", subject: "Alert", body: "SSH session detected from unexpected IP.", date: "2026-05-11" }
     ]
 };
 

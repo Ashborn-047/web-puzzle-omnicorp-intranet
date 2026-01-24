@@ -32,9 +32,10 @@ export const createProgressionState = () => ({
     overseerMessagesShown: 0,
     overseerMessageQueue: [],
     endingClassification: null,
-    projectOmegaUnlocked: false,
-    gameEnded: false,
-    userClearance: 'AUDIT_L1'
+    userClearance: 'AUDIT_L1',
+    archiveAccessed: false,
+    internalClassification: 'OBSERVER',
+    notepadVisible: false
 });
 
 /**
@@ -129,5 +130,22 @@ export const endGame = (state, behaviorFlags) => {
         ...state,
         gameEnded: true,
         endingClassification: classifyEnding(behaviorFlags, state)
+    };
+};
+export const recordArchiveAccessed = (state) => {
+    return {
+        ...state,
+        archiveAccessed: true,
+        internalClassification: 'PARTICIPANT'
+    };
+};
+
+/**
+ * Set notepad visibility
+ */
+export const setNotepadVisible = (state, visible) => {
+    return {
+        ...state,
+        notepadVisible: visible
     };
 };

@@ -20,6 +20,9 @@ export const createBehaviorFlags = () => ({
     failedLoginAttempts: 0,     // Failed password attempts
     auditCompleted: false,      // Whether fraud audit was completed
     restrictedAccessAttempts: 0, // Attempts to access restricted content
+    failedArchiveAccessAttempts: 0, // SILENT LOG: Failed terminal archive attempts
+    notepadReads: 0,             // SILENT LOG: Count of residue notepad reads
+    evidenceFilesRead: [],       // SILENT LOG: Evidence files viewed
     sessionStartTime: Date.now()
 });
 
@@ -126,4 +129,37 @@ export const getBehaviorSummary = (flags) => {
         auditCompleted: flags.auditCompleted,
         sessionDuration: Date.now() - flags.sessionStartTime
     };
+};
+
+/**
+ * Record failed archive access
+ */
+export const recordFailedArchiveAccess = (flags) => {
+    return {
+        ...flags,
+        failedArchiveAccessAttempts: flags.failedArchiveAccessAttempts + 1
+    };
+};
+
+/**
+ * Record notepad read
+ */
+export const recordNotepadRead = (flags) => {
+    return {
+        ...flags,
+        notepadReads: flags.notepadReads + 1
+    };
+};
+
+/**
+ * Record evidence file read
+ */
+export const recordEvidenceRead = (flags, fileId) => {
+    if (!flags.evidenceFilesRead.includes(fileId)) {
+        return {
+            ...flags,
+            evidenceFilesRead: [...flags.evidenceFilesRead, fileId]
+        };
+    }
+    return flags;
 };

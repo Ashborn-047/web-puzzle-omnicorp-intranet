@@ -1,0 +1,23 @@
+[OMNICORP EQUIPMENT MANIFEST - PROJECT OMEGA]
+[L3 CLEARANCE REQUIRED]
+
+MANIFEST ID: R-902
+VENDOR: APEX SOLUTIONS
+DATE: 2026-05-14
+
+ITEMS:
+- 500x Containment Shells (Organic Grade)
+- 200x Neural Interface Leads (L2-Class)
+- 10k tons Bio-Feedstock (REDACTED SOURCE)
+- 50x Sub-Zero Cooling Cores
+
+DISTRIBUTION:
+Sector 7 / Sub-Level 4: 90%
+Node 666 (Strand A): 10%
+
+REMARKS:
+Containment shells are to be used for "Voluntary Removal" participants.
+Biomass ingestion scheduled for midnight cycles.
+Do not open shells during transit.
+The cargo does not breathe.
+It only processes.
