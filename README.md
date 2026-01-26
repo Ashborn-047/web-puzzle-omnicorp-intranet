@@ -1,41 +1,51 @@
-# Web Puzzle: OmniCorp Intranet 🧩
+# OMNICORP INTRANET 🧩
 
-A narrative-driven, corporate portal puzzle framework. Players navigate a realistic internal network, uncover systemic discrepancies, and escalate access to expose hidden conspiracies.
+> **STATUS: ACTIVE SESSION**  
+> **CLEARANCE: AUDITOR_TEMP**  
+> **SYSTEM: PHOSPHOR-7 v4.1.18**
 
-## 🚀 Experience the Puzzle
-- **Realistic Interface**: A fully functional React-based intranet with Dashboard, Messages, Directory, and a custom Sys Terminal.
-- **Narrative Depth**: Over 30 files of lore, character profiles, and environmental storytelling.
-- **Complexity**: Multiple clearance levels (EXTERNAL → L1 → L3 → OMEGA), department-based access control, and behavioral triggers.
+A narrative-driven, corporate horror puzzle framework. Navigate a simulated internal network, uncover systemic discrepancies, and escalate access to fulfill the system's requirements.
+
+---
+
+## 👁️ The Simulation
+You are a behavioral probe—though you might think you are a temporary auditor. Your journey through OmniCorp is a series of "Acts" designed to test the limits of your curiosity and compliance.
+
+### Act I: Normality
+The audit is the filter. Perform routine tasks, flag "structuring" patterns, and realize that competence is just the first layer of the experiment.
+
+## 🚀 Key Features
+- **Immersive Interface**: A fully functional React-based intranet including Dashboard, Messages, Directory, and a custom Sys Terminal.
+- **Narrative Depth**: Built on a solid foundation of "Bureaucratic Horror" where violence is enacted through policy and process.
+- **Dynamic Access Control**: A multi-tiered clearance system (EXTERNAL → L1 → L2 → L3 → OMEGA) that shifts your reality as your position changes.
+- **System Triggers**: Contextual notifications and environmental storytelling that react to your investigative patterns.
 
 ## 🛠 Tech Stack
-- **Framework**: React 18 + Vite
-- **Styling**: Vanilla CSS with Tailwind-like utility patterns
-- **State**: React Context (Behavior Tracking) & Hooks
-- **Icons**: Lucide React
-
-## 🧩 Gameplay Mechanics
-- **Financial Audit**: Flag suspicious "structuring" patterns under the $5,000 threshold.
-- **Terminal Operations**: Use SSH and session hijacking as a SysAdmin.
-- **Secure Vaults**: Unlock redacted archives using hidden clues and PIDs.
-- **Containment Protocol**: Collect Alpha, Beta, and Gamma keys to trigger the finale.
+- **Framework**: [React 19](https://react.dev/) + [Vite](https://vitejs.dev/)
+- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) (Atomic Utility Engine)
+- **Icons**: [Lucide React](https://lucide.dev/)
+- **State**: React Context (Behavioral Tracking & Game State)
 
 ## 📁 Project Structure
-- `src/core/`: Game logic, access rules, and state management.
-- `src/data/`: Narrative files, profiles, and puzzle clues.
-- `src/ui/`: Modular UI components and overlays.
-- `docs/`: Puzzle design and flow documentation.
+- `src/core/`: The "Overseer" logic, access rules, and state management.
+- `src/data/`: Narrative assets, personnel profiles, and redacted documents.
+- `src/ui/`: Modular viewport components for the corporate portal.
+- `docs/`: Canonical game design and puzzle flow documentation.
+- `legacy-code/`: The primordial versions and design process history.
 
-## 🛠 Local Setup
+## 🛠 Local Deployment
 ```bash
-# Install dependencies
+# Initialize environmental dependencies
 npm install
 
-# Run development server
+# Launch the Phosphor-7 terminal
 npm run dev
 
-# Build for production
+# Compile for production deployment
 npm run build
 ```
 
 ---
-*Unauthorized access to this repository is a Class A Felony.*
+*The system anticipated you. Your path is valid.*
+*Unauthorized access is a Class A Felony.*
+
