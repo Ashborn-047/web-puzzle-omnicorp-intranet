@@ -25,6 +25,12 @@ import RnDDashboard from './ui/dashboards/RnDDashboard.jsx';
 import ManagementDashboard from './ui/dashboards/ManagementDashboard.jsx';
 import SystemDenialView from './ui/shared/SystemDenialView.jsx';
 
+// Individual Profiles
+import TempAuditorProfile from './ui/profiles/TempAuditorProfile.jsx';
+import DavidBowmanProfile from './ui/profiles/DavidBowmanProfile.jsx';
+import SarahKoneProfile from './ui/profiles/SarahKoneProfile.jsx';
+import IsaacClarkeProfile from './ui/profiles/IsaacClarkeProfile.jsx';
+
 // Act II Data & Components
 import { ACT2_CHATS } from './data/messages/act2_chats.js';
 import { ACT2_EMAILS } from './data/messages/act2_emails.js';
@@ -596,6 +602,16 @@ const CorporatePortal = () => {
             notes: state.progression.notepadEntries
         };
 
+        // ID-Based Specific Profiles
+        switch (user.id) {
+            case 'AUDIT-04': return <TempAuditorProfile {...props} />;
+            case '9000': return <DavidBowmanProfile {...props} />;
+            case '7700': return <SarahKoneProfile {...props} />;
+            case '1001': return <IsaacClarkeProfile {...props} />;
+            default: break;
+        }
+
+        // Role-Based Fallback
         switch (user.role) {
             case ROLES.AUDITOR:
             case ROLES.FINANCE:
