@@ -1353,7 +1353,16 @@ const CorporatePortal = () => {
                                 >
                                     <Network size={16} /> LOGIN WITH SSO
                                 </button>
-
+                                <div className="pt-3 text-center">
+                                    <a
+                                        href="./studio.html"
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-[11px] font-semibold text-indigo-700 hover:text-indigo-900 inline-flex items-center gap-1 hover:underline"
+                                    >
+                                        <Users size={12} /> Launch Narrative Studio (Standalone Tool) ↗
+                                    </a>
+                                </div>
                             </div>
                         </div>
 
@@ -1485,6 +1494,15 @@ const CorporatePortal = () => {
                     <button className="md:hidden p-1" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}><Menu size={24} /></button>
                     <div className="bg-blue-900 p-1.5 rounded text-white hidden sm:block"><Building2 size={20} /></div>
                     <h1 className="font-bold text-lg leading-none tracking-tight">OMNICORP <span className={accentColor}>{isOverseer ? 'CLASSIFIED' : (isRemote ? 'REMOTE LINK' : 'INTRANET')}</span></h1>
+                    <a
+                        href="./studio.html"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="hidden md:flex items-center gap-1.5 text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-md transition-colors shadow-sm ml-2"
+                        title="Open Narrative & Decision Studio (Standalone)"
+                    >
+                        <Users size={13} /> Narrative Studio ↗
+                    </a>
                 </div>
                 <div className="flex items-center gap-4">
                     <div className="text-right hidden sm:block">
