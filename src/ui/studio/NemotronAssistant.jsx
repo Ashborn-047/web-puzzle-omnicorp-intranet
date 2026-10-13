@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bot, Send, Key, Sparkles, Plus, Trash2, X, RefreshCw, Cpu, Check, AlertCircle, Copy, HelpCircle, ChevronDown, CheckCircle2 } from 'lucide-react';
 
 const POPULAR_MODELS = [
+    { id: 'nvidia/nemotron-3-super-120b-a12b', name: 'NVIDIA Nemotron 3 120B (Recommended • Fast ~1s)', tag: 'Nemotron 120B' },
     { id: 'deepseek-ai/deepseek-v4.1-flash', name: 'NVIDIA DeepSeek v4.1 Flash (Experimental)', tag: 'DeepSeek' },
     { id: 'moonshotai/kimi-k3', name: 'Moonshot Kimi k3 (Experimental / 2.8T MoE)', tag: 'Kimi k3' }
 ];
@@ -47,11 +48,11 @@ export default function NemotronAssistant({
     decisionLines = []
 }) {
     const [apiKey, setApiKey] = useState('');
-    const [selectedModel, setSelectedModel] = useState('deepseek-ai/deepseek-v4.1-flash');
+    const [selectedModel, setSelectedModel] = useState('nvidia/nemotron-3-super-120b-a12b');
     const [messages, setMessages] = useState([
         {
             role: 'assistant',
-            content: 'Greetings Architect. I am your **OmniCorp AI Co-Writer**. You can toggle between **NVIDIA DeepSeek v4.1 Flash** and **Moonshot Kimi k3** in the model bar above. Ask me to formulate new employees, dialogue logs, PO clues, or story branches!'
+            content: 'Greetings Architect. I am your **OmniCorp AI Co-Writer**. Default model is set to **NVIDIA Nemotron 3 120B** (ultra-fast ~1s response). You can also switch models in the selector bar above. Ask me to formulate new employees, dialogue logs, PO clues, or story branches!'
         }
     ]);
     const [inputPrompt, setInputPrompt] = useState('');
@@ -60,13 +61,14 @@ export default function NemotronAssistant({
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [copiedKeyBadge, setCopiedKeyBadge] = useState(false);
     const messagesEndRef = useRef(null);
+    const abortControllerRef = useRef(null);
 
     const primaryEnvKey = import.meta.env.VITE_NVIDIA_API_KEY || '';
     const altEnvKey = import.meta.env.VITE_NVIDIA_API_KEY_ALT || '';
 
     useEffect(() => {
         const savedKey = localStorage.getItem('omnicorp_nemotron_api_key') || primaryEnvKey || altEnvKey;
-        const savedModel = localStorage.getItem('omnicorp_nemotron_model') || 'deepseek-ai/deepseek-v4.1-flash';
+        const savedModel = localStorage.getItem('omnicorp_nemotron_model') || 'nvidia/nemotron-3-super-120b-a12b';
         setApiKey(savedKey);
         setSelectedModel(savedModel);
         if (!savedKey) {
@@ -84,6 +86,9 @@ export default function NemotronAssistant({
 
     const handleModelChange = (newModel) => {
         if (!newModel) return;
+        if (isLoading && abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
         setSelectedModel(newModel);
         localStorage.setItem('omnicorp_nemotron_model', newModel);
         const modelObj = POPULAR_MODELS.find(m => m.id === newModel);
@@ -92,6 +97,14 @@ export default function NemotronAssistant({
             ...prev,
             { role: 'assistant', content: `⚡ Active model switched to **${modelName}**.` }
         ]);
+    };
+
+    const handleCancelRequest = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        setIsLoading(false);
+        setErrorMsg('Request cancelled by user.');
     };
 
     const handleSaveSettings = () => {
@@ -118,6 +131,8 @@ export default function NemotronAssistant({
         setInputPrompt('');
         setIsLoading(true);
         setErrorMsg('');
+
+        abortControllerRef.current = new AbortController();
 
         try {
             const contextSummary = `Currently configured: ${characters.length} characters in roster, ${decisionLines.length} decision lines in graph.`;
@@ -151,7 +166,8 @@ export default function NemotronAssistant({
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${apiKey.trim()}`
                         },
-                        body: payloadBody
+                        body: payloadBody,
+                        signal: abortControllerRef.current.signal
                     });
                     if (res.ok) {
                         response = res;
@@ -161,6 +177,9 @@ export default function NemotronAssistant({
                         throw new Error(errData.message || errData.error?.message || `API HTTP ${res.status}`);
                     }
                 } catch (err) {
+                    if (err.name === 'AbortError') {
+                        throw new Error('Request was cancelled.');
+                    }
                     lastFetchError = err;
                 }
             }
@@ -172,7 +191,9 @@ export default function NemotronAssistant({
             // Append empty assistant message for live streaming
             setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
-            let accumulatedText = '';
+            let responseText = '';
+            let reasoningText = '';
+
             if (response.body && response.body.getReader) {
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
@@ -193,18 +214,26 @@ export default function NemotronAssistant({
                                 const jsonStr = trimmed.replace(/^data:\s*/, '');
                                 const parsed = JSON.parse(jsonStr);
                                 const delta = parsed.choices?.[0]?.delta;
-                                const textChunk = delta?.content || delta?.reasoning_content || '';
-                                if (textChunk) {
-                                    accumulatedText += textChunk;
-                                    const cleanedText = accumulatedText
-                                        .replace(/<\|close\|>message/g, '')
-                                        .replace(/<think>[\s\S]*?<\/think>/g, '');
+                                const contentChunk = delta?.content || '';
+                                const reasoningChunk = delta?.reasoning_content || '';
 
+                                if (contentChunk) {
+                                    responseText += contentChunk;
+                                }
+                                if (reasoningChunk) {
+                                    reasoningText += reasoningChunk;
+                                }
+
+                                const activeDisplay = (responseText || (reasoningText ? `*Drafting...*\n${reasoningText}` : ''))
+                                    .replace(/<\|close\|>message/g, '')
+                                    .replace(/<think>[\s\S]*?<\/think>/g, '');
+
+                                if (activeDisplay) {
                                     setMessages(prev => {
                                         const updated = [...prev];
                                         updated[updated.length - 1] = {
                                             role: 'assistant',
-                                            content: cleanedText
+                                            content: activeDisplay
                                         };
                                         return updated;
                                     });
@@ -218,11 +247,11 @@ export default function NemotronAssistant({
             } else {
                 const data = await response.json();
                 const choiceMsg = data.choices?.[0]?.message;
-                accumulatedText = choiceMsg?.content || choiceMsg?.reasoning_content || 'No response returned.';
+                responseText = choiceMsg?.content || choiceMsg?.reasoning_content || 'No response returned.';
             }
 
-            // Final cleanup of accumulated content
-            const finalCleaned = accumulatedText
+            // Final cleanup of accumulated content (prioritizing clean response text)
+            const finalCleaned = (responseText || reasoningText || '')
                 .replace(/<\|close\|>message/g, '')
                 .replace(/<think>[\s\S]*?<\/think>/g, '')
                 .trim();
@@ -236,9 +265,12 @@ export default function NemotronAssistant({
                 return updated;
             });
         } catch (err) {
-            setErrorMsg(err.message || 'Failed to connect to NVIDIA API.');
+            if (err.name !== 'AbortError' && err.message !== 'Request was cancelled.') {
+                setErrorMsg(err.message || 'Failed to connect to NVIDIA API.');
+            }
         } finally {
             setIsLoading(false);
+            abortControllerRef.current = null;
         }
 
     };
@@ -452,9 +484,26 @@ export default function NemotronAssistant({
                 })}
 
                 {isLoading && (
-                    <div className="flex items-center gap-2 text-[#3b2a5a] text-xs py-2 px-1 font-semibold">
-                        <RefreshCw size={14} className="animate-spin text-[#3b2a5a]" />
-                        <span>Formulating narrative logic via {currentModelObj.tag}...</span>
+                    <div className="flex flex-col gap-2 py-2 px-1 animate-in fade-in">
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 text-[#3b2a5a] text-xs font-semibold">
+                                <RefreshCw size={14} className="animate-spin text-[#3b2a5a] shrink-0" />
+                                <span>Formulating via {currentModelObj.tag}...</span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleCancelRequest}
+                                className="text-[11px] font-bold text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2.5 py-0.5 rounded-lg transition-colors cursor-pointer"
+                                title="Cancel current request"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                        {selectedModel !== 'nvidia/nemotron-3-super-120b-a12b' && (
+                            <div className="text-[10px] text-[#3b2a5a]/80 bg-[#ffd6e8]/40 border border-[#ff9ec7] rounded-xl p-2 leading-relaxed">
+                                💡 <strong>Tip:</strong> DeepSeek & Kimi k3 have long serverless queue times. Switch model to <strong>NVIDIA Nemotron 3 120B</strong> above for instant ~1-second responses!
+                            </div>
+                        )}
                     </div>
                 )}
                 <div ref={messagesEndRef} />
