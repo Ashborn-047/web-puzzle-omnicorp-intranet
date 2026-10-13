@@ -131,7 +131,8 @@ export default function NemotronAssistant({
                 model: selectedModel,
                 messages: apiMessages,
                 temperature: 0.6,
-                max_tokens: 700
+                max_tokens: 700,
+                stream: true
             });
 
             // In dev mode, use Vite proxy to avoid browser CORS; in prod, try direct then fallback
@@ -168,26 +169,78 @@ export default function NemotronAssistant({
                 throw lastFetchError || new Error('Network error: Unable to reach NVIDIA NIM endpoint.');
             }
 
-            const data = await response.json();
-            const choiceMsg = data.choices?.[0]?.message;
-            let replyContent = choiceMsg?.content;
-            if (!replyContent || !replyContent.trim()) {
-                replyContent = choiceMsg?.reasoning_content;
-            }
-            if (!replyContent || !replyContent.trim()) {
-                replyContent = 'No response returned from model.';
+            // Append empty assistant message for live streaming
+            setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+
+            let accumulatedText = '';
+            if (response.body && response.body.getReader) {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let streamBuffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    streamBuffer += decoder.decode(value, { stream: true });
+                    const lines = streamBuffer.split('\n');
+                    streamBuffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (trimmed.startsWith('data:') && !trimmed.includes('[DONE]')) {
+                            try {
+                                const jsonStr = trimmed.replace(/^data:\s*/, '');
+                                const parsed = JSON.parse(jsonStr);
+                                const delta = parsed.choices?.[0]?.delta;
+                                const textChunk = delta?.content || delta?.reasoning_content || '';
+                                if (textChunk) {
+                                    accumulatedText += textChunk;
+                                    const cleanedText = accumulatedText
+                                        .replace(/<\|close\|>message/g, '')
+                                        .replace(/<think>[\s\S]*?<\/think>/g, '');
+
+                                    setMessages(prev => {
+                                        const updated = [...prev];
+                                        updated[updated.length - 1] = {
+                                            role: 'assistant',
+                                            content: cleanedText
+                                        };
+                                        return updated;
+                                    });
+                                }
+                            } catch {
+                                // Ignore unparseable SSE line fragments
+                            }
+                        }
+                    }
+                }
             } else {
-                // Clean up Moonshot/DeepSeek internal tags
-                replyContent = replyContent.replace(/<\|close\|>message/g, '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+                const data = await response.json();
+                const choiceMsg = data.choices?.[0]?.message;
+                accumulatedText = choiceMsg?.content || choiceMsg?.reasoning_content || 'No response returned.';
             }
 
-            setMessages(prev => [...prev, { role: 'assistant', content: replyContent }]);
+            // Final cleanup of accumulated content
+            const finalCleaned = accumulatedText
+                .replace(/<\|close\|>message/g, '')
+                .replace(/<think>[\s\S]*?<\/think>/g, '')
+                .trim();
 
+            setMessages(prev => {
+                const updated = [...prev];
+                updated[updated.length - 1] = {
+                    role: 'assistant',
+                    content: finalCleaned || 'No response returned from model.'
+                };
+                return updated;
+            });
         } catch (err) {
             setErrorMsg(err.message || 'Failed to connect to NVIDIA API.');
         } finally {
             setIsLoading(false);
         }
+
     };
 
     // Helper to extract JSON from assistant message for 1-click import
@@ -242,24 +295,6 @@ export default function NemotronAssistant({
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                    <button
-                        onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                        className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
-                            isSettingsOpen 
-                                ? 'bg-[#3b2a5a] text-[#ffd6e8] border-[#ff9ec7] shadow-sm' 
-                                : 'bg-white border-[#c9b6ff] text-[#3b2a5a] hover:bg-[#ffd6e8]/40 shadow-xs'
-                        }`}
-                        title="API Key & Credentials"
-                    >
-                        <Key size={14} />
-                    </button>
-                    <button
-                        onClick={() => setMessages([{ role: 'assistant', content: 'Chat history cleared. Ready for your next narrative inquiry.' }])}
-                        className="p-1.5 rounded-xl bg-white border border-[#c9b6ff] text-[#3b2a5a] hover:bg-[#ffd6e8]/40 shadow-xs transition-colors cursor-pointer"
-                        title="Clear Chat History"
-                    >
-                        <Trash2 size={14} />
-                    </button>
                     <button
                         onClick={onClose}
                         className="p-1.5 rounded-xl hover:bg-[#ffd6e8]/50 text-[#3b2a5a] transition-colors cursor-pointer"
