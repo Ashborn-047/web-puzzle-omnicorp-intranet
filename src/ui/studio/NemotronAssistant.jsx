@@ -176,6 +176,9 @@ export default function NemotronAssistant({
             }
             if (!replyContent || !replyContent.trim()) {
                 replyContent = 'No response returned from model.';
+            } else {
+                // Clean up Moonshot/DeepSeek internal tags
+                replyContent = replyContent.replace(/<\|close\|>message/g, '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
             }
 
             setMessages(prev => [...prev, { role: 'assistant', content: replyContent }]);
