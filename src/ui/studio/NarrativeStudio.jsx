@@ -795,20 +795,20 @@ export default function NarrativeStudio({ isOpen = true, onClose, isStandalone =
                                                         <p className="text-xs text-[#3b2a5a]/80 font-bold mt-0.5">{char.title}</p>
                                                     </div>
 
-                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <div className="flex items-center gap-1">
                                                         <button
                                                             onClick={() => handleOpenEditChar(char)}
-                                                            className="p-1.5 hover:bg-[#ffd6e8]/50 text-[#3b2a5a]/70 hover:text-[#3b2a5a] rounded-lg transition-colors border border-transparent hover:border-[#c9b6ff]"
+                                                            className="p-1.5 bg-[#f3e8ff]/80 hover:bg-[#ffd6e8] text-[#3b2a5a] rounded-lg transition-all border border-[#c9b6ff]/60 hover:border-[#ff9ec7] cursor-pointer shadow-xs"
                                                             title="Edit character"
                                                         >
-                                                            <Edit3 size={14} />
+                                                            <Edit3 size={13} />
                                                         </button>
                                                         <button
                                                             onClick={() => handleDeleteChar(char.id, char.name)}
-                                                            className="p-1.5 hover:bg-[#ffd6e8] text-[#3b2a5a]/70 hover:text-[#3b2a5a] rounded-lg transition-colors border border-transparent hover:border-[#ff9ec7]"
-                                                            title="Delete character"
+                                                            className="p-1.5 bg-[#fbf7ff] hover:bg-rose-50 text-[#3b2a5a]/60 hover:text-rose-600 rounded-lg transition-all border border-[#c9b6ff]/50 hover:border-rose-300 cursor-pointer shadow-xs"
+                                                            title={`Delete ${char.name}`}
                                                         >
-                                                            <Trash2 size={14} />
+                                                            <Trash2 size={13} />
                                                         </button>
                                                     </div>
                                                 </div>
@@ -842,12 +842,28 @@ export default function NarrativeStudio({ isOpen = true, onClose, isStandalone =
                                                 )}
                                             </div>
 
-                                            {/* Lore notes */}
-                                            {char.loreNotes && (
-                                                <div className="pt-2.5 border-t border-[#c9b6ff]/50 text-[10px] text-[#3b2a5a]/70">
-                                                    {char.loreNotes}
+                                            {/* Lore notes & Card Action Footer */}
+                                            <div className="pt-2.5 border-t border-[#c9b6ff]/50 flex items-center justify-between gap-2 mt-auto">
+                                                <div className="text-[10px] text-[#3b2a5a]/70 line-clamp-2 flex-1">
+                                                    {char.loreNotes || ''}
                                                 </div>
-                                            )}
+                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                    <button
+                                                        onClick={() => handleOpenEditChar(char)}
+                                                        className="px-2.5 py-1 bg-[#f3e8ff]/80 hover:bg-[#ffd6e8] text-[#3b2a5a] text-[10px] font-bold rounded-lg border border-[#c9b6ff]/70 flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+                                                        title="Edit character details"
+                                                    >
+                                                        <Edit3 size={11} /> Edit
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteChar(char.id, char.name)}
+                                                        className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-900 text-[10px] font-bold rounded-lg border border-rose-200 flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+                                                        title={`Delete ${char.name}`}
+                                                    >
+                                                        <Trash2 size={11} /> Delete
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -1167,20 +1183,38 @@ export default function NarrativeStudio({ isOpen = true, onClose, isStandalone =
                                 />
                             </div>
 
-                            <div className="pt-4 border-t border-[#c9b6ff] flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsFormOpen(false)}
-                                    className="px-4 py-2 bg-white text-[#3b2a5a] rounded-xl hover:bg-[#ffd6e8]/40 font-bold border border-[#c9b6ff] transition-all"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-5 py-2 bg-gradient-to-b from-[#ffa8ce] to-[#ff9ec7] hover:from-[#ff96c4] hover:to-[#f78bb8] text-[#3b2a5a] rounded-xl font-bold flex items-center gap-1.5 border border-[#ff8dbb] shadow-[0_4px_14px_rgba(255,158,199,0.35),inset_0_1.5px_0_rgba(255,255,255,0.8),inset_0_-2px_0_rgba(215,100,145,0.3)] transition-all"
-                                >
-                                    <Save size={14} /> {editingChar ? 'Save Changes' : 'Create Character'}
-                                </button>
+                            <div className="pt-4 border-t border-[#c9b6ff] flex justify-between items-center gap-2">
+                                {editingChar ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const idToDelete = editingChar.id;
+                                            const nameToDelete = editingChar.name;
+                                            setIsFormOpen(false);
+                                            handleDeleteChar(idToDelete, nameToDelete);
+                                        }}
+                                        className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-900 rounded-xl font-bold border border-rose-200 transition-all flex items-center gap-1.5 cursor-pointer text-xs"
+                                        title="Delete this character permanently"
+                                    >
+                                        <Trash2 size={13} /> Delete Character
+                                    </button>
+                                ) : <div />}
+
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsFormOpen(false)}
+                                        className="px-4 py-2 bg-white text-[#3b2a5a] rounded-xl hover:bg-[#ffd6e8]/40 font-bold border border-[#c9b6ff] transition-all cursor-pointer text-xs"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-5 py-2 bg-gradient-to-b from-[#ffa8ce] to-[#ff9ec7] hover:from-[#ff96c4] hover:to-[#f78bb8] text-[#3b2a5a] rounded-xl font-bold flex items-center gap-1.5 border border-[#ff8dbb] shadow-[0_4px_14px_rgba(255,158,199,0.35),inset_0_1.5px_0_rgba(255,255,255,0.8),inset_0_-2px_0_rgba(215,100,145,0.3)] transition-all cursor-pointer text-xs"
+                                    >
+                                        <Save size={14} /> {editingChar ? 'Save Changes' : 'Create Character'}
+                                    </button>
+                                </div>
                             </div>
                         </form>
                     </div>
