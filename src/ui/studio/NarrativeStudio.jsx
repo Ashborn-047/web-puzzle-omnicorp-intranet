@@ -11,6 +11,7 @@ import initialSavedData from '../../data/narrative_studio_save.json';
 import StudioSecurityGate from './StudioSecurityGate.jsx';
 import StudioSyncModal from './StudioSyncModal.jsx';
 import NemotronAssistant from './NemotronAssistant.jsx';
+import { generateRandomCharacter } from './omnicorpSimulator.js';
 
 // Pre-loaded Canon Characters
 const DEFAULT_CHARACTERS = [
@@ -399,6 +400,42 @@ export default function NarrativeStudio({ isOpen = true, onClose, isStandalone =
         setIsFormOpen(true);
     };
 
+    // Open Form for Add pre-filled with data (e.g. from AI Co-Writer)
+    const handleOpenAddCharWithData = (initialData = {}) => {
+        setEditingChar(null);
+        setFormData({
+            name: initialData.name || '',
+            badgeId: initialData.badgeId || '',
+            dept: initialData.dept || 'HQ - FINANCE',
+            title: initialData.title || '',
+            tier: initialData.tier || 'Supporting',
+            clearance: initialData.clearance || 'L1 (INTERNAL)',
+            status: initialData.status || 'Active',
+            clueHeld: initialData.clueHeld || '',
+            messageSnippet: initialData.messageSnippet || '',
+            loreNotes: initialData.loreNotes || ''
+        });
+        setIsFormOpen(true);
+    };
+
+    // Auto-fill form with AI-generated character
+    const handleAutoFillWithAI = () => {
+        const generated = generateRandomCharacter();
+        setFormData({
+            name: generated.name,
+            badgeId: generated.badgeId,
+            dept: generated.dept,
+            title: generated.title,
+            tier: generated.tier,
+            clearance: generated.clearance,
+            status: generated.status,
+            clueHeld: generated.clueHeld,
+            messageSnippet: generated.messageSnippet,
+            loreNotes: generated.loreNotes
+        });
+        showToast(`AI Co-Writer drafted: ${generated.name} (${generated.title})`);
+    };
+
     // Open Form for Edit
     const handleOpenEditChar = (char) => {
         setEditingChar(char);
@@ -728,13 +765,27 @@ export default function NarrativeStudio({ isOpen = true, onClose, isStandalone =
                                 </select>
                             </div>
 
-                            {/* Add Character Button (#ff9ec7 Vibrant Pastel Pink) */}
-                            <button
-                                onClick={handleOpenAddChar}
-                                className="bg-gradient-to-b from-[#ffa8ce] to-[#ff9ec7] hover:from-[#ff96c4] hover:to-[#f78bb8] text-[#3b2a5a] font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 border border-[#ff8dbb] shadow-[0_4px_14px_rgba(255,158,199,0.35),inset_0_1.5px_0_rgba(255,255,255,0.8),inset_0_-2px_0_rgba(215,100,145,0.3)] transition-all hover:scale-[1.01] active:scale-[0.99]"
-                            >
-                                <Plus size={16} /> Add New Character
-                            </button>
+                            {/* Actions Group */}
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => {
+                                        setIsNemotronOpen(true);
+                                    }}
+                                    className="bg-white hover:bg-[#ffd6e8]/40 text-[#3b2a5a] font-bold px-3.5 py-2.5 rounded-xl text-xs flex items-center gap-1.5 border border-[#c9b6ff] shadow-xs transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+                                    title="Open AI Co-Writer to brainstorm or create characters"
+                                >
+                                    <Sparkles size={15} className="text-[#3b2a5a]" />
+                                    <span>AI Co-Writer</span>
+                                </button>
+
+                                {/* Add Character Button (#ff9ec7 Vibrant Pastel Pink) */}
+                                <button
+                                    onClick={handleOpenAddChar}
+                                    className="bg-gradient-to-b from-[#ffa8ce] to-[#ff9ec7] hover:from-[#ff96c4] hover:to-[#f78bb8] text-[#3b2a5a] font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 border border-[#ff8dbb] shadow-[0_4px_14px_rgba(255,158,199,0.35),inset_0_1.5px_0_rgba(255,255,255,0.8),inset_0_-2px_0_rgba(215,100,145,0.3)] transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+                                >
+                                    <Plus size={16} /> Add New Character
+                                </button>
+                            </div>
                         </div>
 
                         {/* STATS STRIP */}
@@ -1048,6 +1099,7 @@ export default function NarrativeStudio({ isOpen = true, onClose, isStandalone =
                         setCharacters(prev => [newChar, ...prev]);
                         showToast(`Added ${newChar.name} to Roster!`);
                     }}
+                    onOpenAddModal={handleOpenAddCharWithData}
                     characters={characters}
                     decisionLines={decisionLines}
                 />
@@ -1062,9 +1114,22 @@ export default function NarrativeStudio({ isOpen = true, onClose, isStandalone =
                                 <Users size={16} className="text-[#ff9ec7]" />
                                 {editingChar ? `Edit Character: ${editingChar.name}` : 'Add New Character to OmniCorp'}
                             </h3>
-                            <button onClick={() => setIsFormOpen(false)} className="text-[#3b2a5a]/60 hover:text-[#3b2a5a] p-1 rounded-lg hover:bg-[#ffd6e8]/40 transition-colors">
-                                <X size={18} />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                {!editingChar && (
+                                    <button
+                                        type="button"
+                                        onClick={handleAutoFillWithAI}
+                                        className="px-3 py-1 bg-gradient-to-r from-[#ffd6e8] to-[#f3e8ff] hover:from-[#ffc4de] hover:to-[#ebd5ff] text-[#3b2a5a] border border-[#ff9ec7] rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer active:scale-95"
+                                        title="Auto-generate a complete employee dossier using AI Co-Writer"
+                                    >
+                                        <Sparkles size={13} className="text-[#3b2a5a]" />
+                                        <span>Auto-Fill with AI</span>
+                                    </button>
+                                )}
+                                <button onClick={() => setIsFormOpen(false)} className="text-[#3b2a5a]/60 hover:text-[#3b2a5a] p-1 rounded-lg hover:bg-[#ffd6e8]/40 transition-colors cursor-pointer">
+                                    <X size={18} />
+                                </button>
+                            </div>
                         </div>
 
                         <form onSubmit={handleSaveChar} className="p-6 overflow-y-auto space-y-4 text-xs">

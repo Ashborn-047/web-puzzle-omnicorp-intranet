@@ -63,6 +63,43 @@ function getRandomBadge() {
     return Math.floor(1000 + Math.random() * 8999).toString();
 }
 
+export function generateRandomCharacter(options = {}) {
+    let pool = SECTOR_ROSTER[0];
+    if (options.dept) {
+        pool = SECTOR_ROSTER.find(r => r.dept.toLowerCase().includes(options.dept.toLowerCase())) || pool;
+    } else if (options.query) {
+        const q = options.query.toLowerCase();
+        if (q.includes('maintenance') || q.includes('pipe') || q.includes('node') || q.includes('welder')) pool = SECTOR_ROSTER[1];
+        else if (q.includes('it') || q.includes('sysadmin') || q.includes('terminal') || q.includes('code') || q.includes('ssh')) pool = SECTOR_ROSTER[2];
+        else if (q.includes('hr') || q.includes('compliance') || q.includes('deprovision') || q.includes('vance')) pool = SECTOR_ROSTER[3];
+        else if (q.includes('finance') || q.includes('audit') || q.includes('po-') || q.includes('lumbergh') || q.includes('kone')) pool = SECTOR_ROSTER[4];
+        else pool = getRandomItem(SECTOR_ROSTER);
+    } else {
+        pool = getRandomItem(SECTOR_ROSTER);
+    }
+
+    const name = `${getRandomItem(pool.firstNames)} ${getRandomItem(pool.lastNames)}`;
+    const badgeId = getRandomBadge();
+    const role = options.title || getRandomItem(pool.roles);
+    const clearance = options.clearance || (Math.random() > 0.6 ? 'L2 (DEPT_SUPERVISOR)' : (Math.random() > 0.85 ? 'L3 (EXECUTIVE)' : 'L1 (INTERNAL)'));
+    const tier = options.tier || (Math.random() > 0.7 ? 'Main Target' : (Math.random() > 0.4 ? 'Supporting' : 'Background'));
+    const clue = getRandomItem(CLUE_TEMPLATES);
+    const quote = getRandomItem(DIALOGUE_TEMPLATES);
+
+    return {
+        name,
+        badgeId,
+        dept: pool.dept,
+        title: role,
+        tier,
+        clearance,
+        status: 'Active',
+        clueHeld: clue,
+        messageSnippet: quote,
+        loreNotes: `Assigned to ${pool.dept}. Noticed recurring anomalies in audit manifests but fears HR deprovisioning.`
+    };
+}
+
 /**
  * Generate simulated in-universe OmniCorp responses
  */
@@ -71,32 +108,7 @@ export function generateOmniCorpSimulatedResponse(prompt, context = {}) {
 
     // 1. CHARACTER CREATION REQUEST
     if (p.includes('character') || p.includes('create') || p.includes('employee') || p.includes('tech') || p.includes('roster') || p.includes('hazmat')) {
-        let pool = SECTOR_ROSTER[0];
-        if (p.includes('maintenance') || p.includes('pipe') || p.includes('node')) pool = SECTOR_ROSTER[1];
-        else if (p.includes('it') || p.includes('sysadmin') || p.includes('terminal') || p.includes('code')) pool = SECTOR_ROSTER[2];
-        else if (p.includes('hr') || p.includes('compliance') || p.includes('deprovision')) pool = SECTOR_ROSTER[3];
-        else if (p.includes('finance') || p.includes('audit') || p.includes('po-')) pool = SECTOR_ROSTER[4];
-        else pool = getRandomItem(SECTOR_ROSTER);
-
-        const name = `${getRandomItem(pool.firstNames)} ${getRandomItem(pool.lastNames)}`;
-        const badgeId = getRandomBadge();
-        const role = getRandomItem(pool.roles);
-        const clearance = p.includes('l2') || p.includes('supervisor') ? 'L2 (DEPT_SUPERVISOR)' : (p.includes('l3') ? 'L3 (EXECUTIVE)' : 'L1 (INTERNAL)');
-        const clue = getRandomItem(CLUE_TEMPLATES);
-        const quote = getRandomItem(DIALOGUE_TEMPLATES);
-
-        const characterObj = {
-            name,
-            badgeId,
-            dept: pool.dept,
-            title: role,
-            tier: 'Supporting',
-            clearance,
-            status: 'Active',
-            clueHeld: clue,
-            messageSnippet: quote,
-            loreNotes: `Assigned to ${pool.dept}. Noticed recurring anomalies in audit manifests but fears HR deprovisioning.`
-        };
+        const characterObj = generateRandomCharacter({ query: p });
 
         return `I have engineered a new employee dossier aligned with the OmniCorp narrative canon:
 

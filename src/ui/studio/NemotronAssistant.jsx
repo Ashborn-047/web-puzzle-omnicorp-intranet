@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-    Bot, Send, Key, Sparkles, Plus, X, RefreshCw, AlertCircle, 
-    ChevronDown, CheckCircle2, SlidersHorizontal, Globe, Zap, ShieldCheck 
+    Bot, Send, Sparkles, Plus, X, RefreshCw, AlertCircle, 
+    ChevronDown, CheckCircle2, SlidersHorizontal, Globe, Zap, ShieldCheck,
+    UserPlus, Edit3
 } from 'lucide-react';
 import { generateOmniCorpSimulatedResponse } from './omnicorpSimulator.js';
 
@@ -86,10 +87,20 @@ Always include a clean JSON code block in this exact structure so the user can i
 \`\`\`
 Keep responses snappy, concise, and direct (under 3-4 sentences max unless generating character JSON). Respond immediately without prolonged reasoning.`;
 
+const CHARACTER_PRESETS = [
+    { label: '🧪 Sector 7 Bio-Tech', prompt: 'Create a Sector 7 Bio-Containment Specialist who discovered living matter in coolant pipes' },
+    { label: '💻 IT Rogue SysAdmin', prompt: 'Create a rogue IT systems administrator who noticed terminal memory residues across loop cycles' },
+    { label: '📊 Finance Auditor', prompt: 'Create a junior financial auditor investigating unmapped offshore wire transfers for PO-4412' },
+    { label: '📋 HR Deprovisioning Officer', prompt: 'Create an HR compliance liaison who processed paperwork for missing employee #882' },
+    { label: '🚚 Janitorial Slurry Handler', prompt: 'Create a night-shift maintenance courier who transported sealed cryo-drums to Sub-level 3' },
+    { label: '🎲 Surprise Employee', prompt: 'Create an unexpected corporate employee with a unique mystery clue for OmniCorp Intranet' }
+];
+
 export default function NemotronAssistant({
     isOpen,
     onClose,
     onAddCharacter,
+    onOpenAddModal,
     characters = [],
     decisionLines = []
 }) {
@@ -111,6 +122,7 @@ export default function NemotronAssistant({
     const [errorMsg, setErrorMsg] = useState('');
     const [infoMsg, setInfoMsg] = useState('');
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [showCharPresets, setShowCharPresets] = useState(false);
     const [savedBadge, setSavedBadge] = useState(false);
     const messagesEndRef = useRef(null);
     const abortControllerRef = useRef(null);
@@ -744,18 +756,36 @@ export default function NemotronAssistant({
                             >
                                 <div className="whitespace-pre-wrap">{m.content}</div>
 
-                                {/* 1-Click Character Importer button if JSON found */}
+                                {/* 1-Click Character Importer & Form Actions */}
                                 {charJson && (
-                                    <div className="mt-3 pt-3 border-t border-[#c9b6ff]/60 flex items-center justify-between bg-[#f3e8ff]/50 -mx-1 px-3 py-2 rounded-xl">
-                                        <div className="text-[11px] font-bold text-[#3b2a5a]">
-                                            Character: <span className="underline">{charJson.name}</span>
+                                    <div className="mt-3 pt-3 border-t border-[#c9b6ff]/60 bg-[#f3e8ff]/70 -mx-1 px-3.5 py-2.5 rounded-xl space-y-2.5">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div>
+                                                <span className="text-[10px] uppercase font-mono font-bold text-[#3b2a5a]/60 block">Proposed Character</span>
+                                                <span className="text-xs font-bold text-[#3b2a5a]">{charJson.name} ({charJson.badgeId})</span>
+                                                <span className="text-[10px] text-[#3b2a5a]/75 block">{charJson.title} • {charJson.dept}</span>
+                                            </div>
+                                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white border border-[#c9b6ff] text-[#3b2a5a] font-bold shrink-0">
+                                                {charJson.clearance}
+                                            </span>
                                         </div>
-                                        <button
-                                            onClick={() => handleImportCharacter(charJson)}
-                                            className="px-3 py-1 bg-gradient-to-b from-[#ffa8ce] to-[#ff9ec7] hover:from-[#ff96c4] hover:to-[#f78bb8] text-[#3b2a5a] rounded-xl font-bold text-[11px] flex items-center gap-1 border border-[#ff8dbb] shadow-sm transition-all cursor-pointer active:scale-95"
-                                        >
-                                            <Plus size={12} /> Add to Roster
-                                        </button>
+                                        <div className="flex items-center gap-2 pt-1 border-t border-[#c9b6ff]/40">
+                                            <button
+                                                onClick={() => handleImportCharacter(charJson)}
+                                                className="flex-1 px-3 py-1.5 bg-gradient-to-b from-[#ffa8ce] to-[#ff9ec7] hover:from-[#ff96c4] hover:to-[#f78bb8] text-[#3b2a5a] rounded-xl font-bold text-[11px] flex items-center justify-center gap-1.5 border border-[#ff8dbb] shadow-sm transition-all cursor-pointer active:scale-95"
+                                            >
+                                                <Plus size={13} /> 1-Click Add
+                                            </button>
+                                            {onOpenAddModal && (
+                                                <button
+                                                    onClick={() => onOpenAddModal(charJson)}
+                                                    className="flex-1 px-3 py-1.5 bg-white hover:bg-[#ffd6e8]/40 text-[#3b2a5a] rounded-xl font-bold text-[11px] flex items-center justify-center gap-1.5 border border-[#c9b6ff] shadow-xs transition-all cursor-pointer active:scale-95"
+                                                    title="Open in Add Character form to review and edit before saving"
+                                                >
+                                                    <Edit3 size={12} /> Review in Form
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -789,14 +819,58 @@ export default function NemotronAssistant({
                 <div ref={messagesEndRef} />
             </div>
 
-            {/* Quick Inspiration Chips */}
-            <div className="px-4 py-2 border-t border-[#c9b6ff] bg-[#f3e8ff] flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
-                <span className="text-[10px] text-[#3b2a5a]/70 font-mono font-bold shrink-0">Prompts:</span>
+            {/* Quick Inspiration Chips & Character Drawer */}
+            {showCharPresets && (
+                <div className="p-3 bg-[#f3e8ff] border-t border-[#c9b6ff] text-xs space-y-2 animate-in slide-in-from-bottom-2">
+                    <div className="flex items-center justify-between text-[#3b2a5a] font-bold text-[11px]">
+                        <span className="flex items-center gap-1.5">
+                            <UserPlus size={13} className="text-[#3b2a5a]" /> Choose Character Concept:
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setShowCharPresets(false)}
+                            className="text-[#3b2a5a]/60 hover:text-[#3b2a5a] p-0.5 rounded-md cursor-pointer"
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                        {CHARACTER_PRESETS.map((preset, idx) => (
+                            <button
+                                key={idx}
+                                type="button"
+                                onClick={() => {
+                                    setShowCharPresets(false);
+                                    handleSendMessage(preset.prompt);
+                                }}
+                                className="p-2 bg-white hover:bg-[#ffd6e8]/60 border border-[#c9b6ff] rounded-xl text-left text-[11px] font-bold text-[#3b2a5a] transition-all cursor-pointer shadow-xs active:scale-98"
+                            >
+                                {preset.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            <div className="px-4 py-2 border-t border-[#c9b6ff] bg-[#fbf7ff] flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+                {/* Dedicated Add Character Button */}
+                <button
+                    type="button"
+                    onClick={() => setShowCharPresets(!showCharPresets)}
+                    className="text-[10px] bg-gradient-to-r from-[#ffa8ce] to-[#ff9ec7] hover:from-[#ff96c4] hover:to-[#f78bb8] text-[#3b2a5a] border border-[#ff8dbb] px-2.5 py-1 rounded-full whitespace-nowrap transition-colors cursor-pointer font-bold shadow-xs flex items-center gap-1 shrink-0 active:scale-95"
+                    title="Generate a new character with AI"
+                >
+                    <UserPlus size={12} />
+                    <span>+ Draft Character</span>
+                </button>
+
+                <span className="text-[10px] text-[#3b2a5a]/50 font-mono font-bold shrink-0">|</span>
+
                 {[
-                    '🎭 Create Sector 7 Hazmat Tech',
+                    '🎭 Sector 7 Hazmat Tech',
                     '💬 Draft Act 2 Chat for Bowman',
-                    '🔍 Formulate PO-4412 Audit Clue',
-                    '🧩 Suggest Act 3 Ending Branch'
+                    '🔍 Formulate PO-4412 Clue',
+                    '🧩 Suggest Act 3 Ending'
                 ].map((chip, idx) => (
                     <button
                         key={idx}
