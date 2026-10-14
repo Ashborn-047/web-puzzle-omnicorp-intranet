@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Deploy GitHub Pages](https://github.com/Ashborn-047/web-puzzle-omnicorp-intranet/actions/workflows/deploy.yml/badge.svg)](https://github.com/Ashborn-047/web-puzzle-omnicorp-intranet/actions)
+[![Deploy GitHub Pages](https://github.com/Ashborn-047/web-puzzle-omnicorp-intranet/actions/workflows/verify.yml/badge.svg)](https://github.com/Ashborn-047/web-puzzle-omnicorp-intranet/actions)
 [![Live Game](https://img.shields.io/badge/Live_Intranet-Demo-7c3aed?style=flat-square&logo=google-chrome&logoColor=white)](https://ashborn-047.github.io/web-puzzle-omnicorp-intranet/)
 [![Narrative Studio](https://img.shields.io/badge/Narrative_Studio-Dev_Tool-ff8dbb?style=flat-square&logo=visual-studio-code&logoColor=white)](https://ashborn-047.github.io/web-puzzle-omnicorp-intranet/studio.html)
 [![React 19](https://img.shields.io/badge/React-19.x-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
