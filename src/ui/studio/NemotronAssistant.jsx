@@ -95,10 +95,10 @@ export default function NemotronAssistant({
     const altEnvKey = import.meta.env.VITE_NVIDIA_API_KEY_ALT || '';
     const openrouterEnvKey = import.meta.env.VITE_OPENROUTER_API_KEY || '';
 
-    const [provider, setProvider] = useState(AI_PROVIDERS.NVIDIA);
+    const [provider, setProvider] = useState(AI_PROVIDERS.OPENROUTER);
     const [apiKey, setApiKey] = useState('');
     const [customProxy, setCustomProxy] = useState('');
-    const [selectedModel, setSelectedModel] = useState('nvidia/nemotron-3-super-120b-a12b');
+    const [selectedModel, setSelectedModel] = useState('nvidia/nemotron-3-ultra-550b-a55b:free');
     const [messages, setMessages] = useState([
         {
             role: 'assistant',
@@ -118,24 +118,23 @@ export default function NemotronAssistant({
     // Initial load of preferences
     useEffect(() => {
         const savedProvider = localStorage.getItem('omnicorp_ai_provider');
-        const savedNvidiaKey = localStorage.getItem('omnicorp_nemotron_api_key') || primaryEnvKey || altEnvKey;
         const savedOpenRouterKey = localStorage.getItem('omnicorp_openrouter_api_key') || openrouterEnvKey;
+        const savedNvidiaKey = localStorage.getItem('omnicorp_nemotron_api_key') || primaryEnvKey || altEnvKey;
         const savedProxy = localStorage.getItem('omnicorp_custom_proxy') || '';
         const savedModel = localStorage.getItem('omnicorp_nemotron_model');
 
-        const activeProvider = savedProvider || (openrouterEnvKey ? AI_PROVIDERS.OPENROUTER : AI_PROVIDERS.NVIDIA);
+        // Always prioritize OpenRouter for browser CORS compatibility
+        const activeProvider = savedProvider || AI_PROVIDERS.OPENROUTER;
         setProvider(activeProvider);
 
-        const activeKey = activeProvider === AI_PROVIDERS.OPENROUTER ? savedOpenRouterKey : savedNvidiaKey;
+        const activeKey = activeProvider === AI_PROVIDERS.OPENROUTER ? savedOpenRouterKey : (savedOpenRouterKey || savedNvidiaKey);
         if (activeKey) setApiKey(activeKey);
         if (savedProxy) setCustomProxy(savedProxy);
 
-        if (savedModel) {
+        if (savedModel && savedModel.includes(':free')) {
             setSelectedModel(savedModel);
-        } else if (activeProvider === AI_PROVIDERS.OPENROUTER) {
-            setSelectedModel('nvidia/nemotron-3-ultra-550b-a55b:free');
         } else {
-            setSelectedModel('nvidia/nemotron-3-super-120b-a12b');
+            setSelectedModel('nvidia/nemotron-3-ultra-550b-a55b:free');
         }
     }, [isOpen, primaryEnvKey, altEnvKey, openrouterEnvKey]);
 

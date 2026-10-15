@@ -114,25 +114,15 @@ export default function CharacterDossierModal({
 
         abortRef.current = new AbortController();
 
-        const savedProvider = localStorage.getItem('omnicorp_ai_provider') || 'openrouter';
-        const savedNvidiaKey = (localStorage.getItem('omnicorp_nemotron_api_key') || import.meta.env.VITE_NVIDIA_API_KEY || '').trim();
         const savedOpenRouterKey = (localStorage.getItem('omnicorp_openrouter_api_key') || import.meta.env.VITE_OPENROUTER_API_KEY || '').trim();
-        let selectedModel = localStorage.getItem('omnicorp_nemotron_model') || 'nvidia/nemotron-3-ultra-550b-a55b:free';
+        const selectedModel = localStorage.getItem('omnicorp_nemotron_model') || 'nvidia/nemotron-3-ultra-550b-a55b:free';
+        const apiKey = savedOpenRouterKey;
 
-        let effectiveProvider = savedProvider;
-        let apiKey = effectiveProvider === 'openrouter' ? savedOpenRouterKey : savedNvidiaKey;
-
-        // Auto-switch to local NVIDIA dev proxy if openrouter key is not yet set, but local dev has NVIDIA key
-        if (effectiveProvider === 'openrouter' && !apiKey && savedNvidiaKey && import.meta.env.DEV) {
-            effectiveProvider = 'nvidia';
-            apiKey = savedNvidiaKey;
-            selectedModel = 'nvidia/nemotron-3-super-120b-a12b';
-        }
-
-        // If offline simulation or no keys at all
-        if (effectiveProvider === 'builtin' || !apiKey) {
+        // If no OpenRouter key is set, guide the user directly
+        if (!apiKey) {
+            setShowKeyConfig(true);
             try {
-                await new Promise(r => setTimeout(r, 450));
+                await new Promise(r => setTimeout(r, 350));
                 let simText = '';
                 if (textToSend.toLowerCase().includes('audit')) {
                     simText = `### 🔍 Collaborative Narrative Audit: ${character.name}\n\n` +
@@ -149,9 +139,7 @@ export default function CharacterDossierModal({
                     );
                 }
 
-                const offlineNotice = !apiKey 
-                    ? `\n\n> ℹ️ *Generated via Built-in Offline Simulation. (To connect live cloud Nemotron models, click **"🔑 Set API Key"** in the top bar to paste your OpenRouter key).*`
-                    : '';
+                const keyNotice = `\n\n> 🔑 **CORS Mode Ready (OpenRouter):** *Please paste your OpenRouter API key (\`sk-or-v1-...\`) into the top drawer above to connect live Nemotron models directly in your browser. (Showing built-in draft in the meantime).*`;
 
                 const collaborativeEnding = `\n\n---\n🤝 **Collaborative Check & Refinements:**\n` +
                     `How would you like to proceed? We can:\n` +
@@ -164,7 +152,7 @@ export default function CharacterDossierModal({
                     ...prev,
                     {
                         role: 'assistant',
-                        content: simText + offlineNotice + collaborativeEnding,
+                        content: simText + keyNotice + collaborativeEnding,
                         suggestions: [
                             `Option A: Make them a reluctant whistleblower`,
                             `Option B: Make them an unwitting corporate pawn`,
@@ -219,30 +207,14 @@ COLLABORATIVE CO-WRITING INSTRUCTIONS:
                 stream: true
             });
 
-            let endpoints = [];
-            let headers = {
+            // OpenRouter direct browser CORS endpoint
+            const endpoints = ['https://openrouter.ai/api/v1/chat/completions'];
+            const headers = {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey.trim()}`
+                'Authorization': `Bearer ${apiKey.trim()}`,
+                'HTTP-Referer': window.location.origin,
+                'X-Title': 'OmniCorp Intranet Studio'
             };
-
-            if (effectiveProvider === 'openrouter') {
-                endpoints = ['https://openrouter.ai/api/v1/chat/completions'];
-                headers['HTTP-Referer'] = window.location.origin;
-                headers['X-Title'] = 'OmniCorp Intranet Studio';
-            } else {
-                const baseUrl = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
-                if (import.meta.env.DEV) {
-                    endpoints = [
-                        `${baseUrl}/api/nvidia/v1/chat/completions`,
-                        '/api/nvidia/v1/chat/completions'
-                    ];
-                } else {
-                    endpoints = [
-                        `${baseUrl}/api/nvidia/v1/chat/completions`,
-                        'https://integrate.api.nvidia.com/v1/chat/completions'
-                    ];
-                }
-            }
 
             let response = null;
             let lastErr = null;
