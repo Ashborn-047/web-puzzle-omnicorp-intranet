@@ -104,10 +104,77 @@ export function generateRandomCharacter(options = {}) {
  * Generate simulated in-universe OmniCorp responses
  */
 export function generateOmniCorpSimulatedResponse(prompt, context = {}) {
-    const p = prompt.toLowerCase();
+    const p = prompt.toLowerCase().trim();
 
-    // 1. CHARACTER CREATION REQUEST
-    if (p.includes('character') || p.includes('create') || p.includes('employee') || p.includes('tech') || p.includes('roster') || p.includes('hazmat')) {
+    // 1. GREETINGS & CASUAL INTROS
+    if (p === 'hi' || p === 'hello' || p === 'hey' || p.startsWith('hi ') || p.startsWith('hello ') || p.includes('who are you') || p.includes('what can you do') || p.includes('help')) {
+        return `Greetings, Architect! 👁️ I am your **OmniCorp AI Co-Writer**. 
+
+I specialize in helping you design and expand the world of **OmniCorp Intranet** (Iteration 14). Here is what we can co-create:
+
+- 👥 **Generate New Employees**: Say *"Create a Sector 7 Bio-Tech"* or *"Create a Rogue IT Specialist"* to produce complete dossiers with 1-click roster import.
+- 💬 **Draft In-Universe Dialogue**: Say *"Draft a chat between Bowman and Sarah"* or *"Write an HR memo from Vance"*.
+- 🔍 **Design Forensic Clues**: Say *"Formulate a PO-4412 discrepancy"* or *"Create a clue for Sector 7"*.
+- 🧩 **Map Branching Endings**: Say *"Suggest Act 3 endings"* to brainstorm branching pathways for AUDIT-04.
+- 📖 **Explore Canon Lore**: Ask me about **Sarah Kone**, **David Bowman**, **Bill Lumbergh**, **Patricia Vance**, **Sector 7**, or **Project Omega**.
+
+What would you like to build into the loop next?`;
+    }
+
+    // 2. SPECIFIC CHARACTER LORE INQUIRIES
+    if (p.includes('sarah') || p.includes('kone')) {
+        return `### 📋 Character Profile: Sarah Kone (Badge #7700)
+- **Role:** Chief Financial Auditor (HQ - Finance)
+- **Clearance:** L2 (DEPT_SUPERVISOR)
+- **Status:** Active (Under Review by HR)
+- **Role in the Loop:** Sarah is a meticulous, rule-abiding auditor who genuinely believes HR is just a normal escalation path. She discovers the $44,120 discrepancy in **PO-4412** for cryogenic slurry. Her L2 credentials allow AUDIT-04 to unredact Apex Solutions invoice lines.
+- **Tragic Flaw:** She trusts Patricia Vance in HR, unaware that Vance routinely deprovisions employees who notice discrepancies.`;
+    }
+
+    if (p.includes('bowman') || p.includes('david')) {
+        return `### 💻 Character Profile: David Bowman (Badge #9000)
+- **Role:** Lead Systems Administrator (HQ - IT)
+- **Clearance:** L3 (EXECUTIVE / INFRASTRUCTURE)
+- **Status:** Rogue / Unsanctioned Terminal Residue
+- **Role in the Loop:** Bowman is the only employee aware that OmniCorp is trapped in a 72-hour reset loop. He leaves decrypted messages in terminal memory residues (accessible via port 22 / SSH session 9000-OMEGA).
+- **Key Clue:** Bowman provides AUDIT-04 with the root command overrides needed to access Sub-level 3 and bypass automated memory resets.`;
+    }
+
+    if (p.includes('lumbergh') || p.includes('bill')) {
+        return `### 📦 Character Profile: Bill Lumbergh (Badge #0451)
+- **Role:** Director of Procurement (Sales & Procurement)
+- **Clearance:** L2 (DEPT_SUPERVISOR)
+- **Status:** Active
+- **Role in the Loop:** Lumbergh signs off on shell entity requisitions (**PO-4412**). He disguised 850 liters of bio-slurry and cryo-containment vessels as "janitorial solvent and server cooler parts" destined for Sector 7 Sub-level 3.
+- **Personality:** Ultra-banal corporate boss who uses cheerful jargon ("Did you get the memo?") to mask horrific logistics.`;
+    }
+
+    if (p.includes('vance') || p.includes('patricia') || p.includes('black vault')) {
+        return `### 🗄️ Character Profile: Patricia Vance (Badge #4492)
+- **Role:** Director of Human Resources & Deprovisioning
+- **Clearance:** L3 (EXECUTIVE)
+- **Status:** Active Overseer
+- **Role in the Loop:** Vance is the executioner of Project Omega. When employees get too close to the truth, she issues "Personnel Reallocation Memos" and sends them to Sub-level 3.
+- **The Black Vault:** Guards the HR Black Vault (**PIN 1979**), which holds the personnel files of missing subjects, including Subject 882.`;
+    }
+
+    if (p.includes('ripley') || p.includes('ellen')) {
+        return `### 📼 Character Profile: Ellen Ripley (Badge #1979)
+- **Role:** Senior Research Scientist (Sector 7 - R&D, MIA)
+- **Clearance:** L-OMEGA (Revoked)
+- **Status:** Missing / Presumed Deprovisioned
+- **Role in the Loop:** Predecessor researcher who discovered that OmniCorp's server cluster was powered by neural tissue in Sub-level 3. She hid cassette recordings in HVAC vents and set the Black Vault override PIN to **1979**.`;
+    }
+
+    if (p.includes('subject 882') || p.includes('882')) {
+        return `### 🧪 Entity Dossier: Subject 882
+- **Origin:** Former contractor hired as AUDIT-01.
+- **Current State:** Suspended in cryo-slurry substrate inside Sector 7 Sub-level 3 bio-reactor.
+- **Lore Revelation:** Project Omega does not use silicon AI servers; it harvests the neural processing capacity of contractors who complete the audit. AUDIT-04 is slated to replace Subject 882 when iteration 14 concludes.`;
+    }
+
+    // 3. CHARACTER CREATION REQUEST
+    if (p.includes('character') || p.includes('create') || p.includes('make an employee') || p.includes('employee') || p.includes('tech') || p.includes('roster') || p.includes('hazmat') || p.includes('worker') || p.includes('person')) {
         const characterObj = generateRandomCharacter({ query: p });
 
         return `I have engineered a new employee dossier aligned with the OmniCorp narrative canon:
@@ -116,11 +183,11 @@ export function generateOmniCorpSimulatedResponse(prompt, context = {}) {
 ${JSON.stringify(characterObj, null, 2)}
 \`\`\`
 
-**Narrative Function:** ${characterObj.name} provides AUDIT-04 with access to Sector 7 manifests and bridges the gap between financial discrepancy PO-4412 and the biological horrors of Project Omega. You can click **"Add to Roster"** above to automatically weave them into your character board!`;
+**Narrative Function:** ${characterObj.name} provides AUDIT-04 with access to ${characterObj.dept} manifests and bridges the gap between financial discrepancy PO-4412 and the biological horrors of Project Omega. You can click **"1-Click Add"** above to automatically weave them into your character board!`;
     }
 
-    // 2. CHAT / DIALOGUE DRAFTING
-    if (p.includes('chat') || p.includes('dialogue') || p.includes('bowman') || p.includes('kone') || p.includes('draft') || p.includes('act 2')) {
+    // 4. CHAT / DIALOGUE DRAFTING
+    if (p.includes('chat') || p.includes('dialogue') || p.includes('convo') || p.includes('draft') || p.includes('act 2') || p.includes('script') || p.includes('conversation')) {
         return `### 💬 OmniCorp Intranet Chat Log [Decrypted Residue]
 **Channel:** #restricted-archival-09 (SysAdmin David Bowman / Sarah Kone)
 **Timestamp:** Iteration 14 • 03:14 AM
@@ -140,7 +207,7 @@ ${JSON.stringify(characterObj, null, 2)}
 *Narrative hook: This conversation reveals that the audit cycle is a continuous artificial loop and primes the player to discover SysAdmin residue in terminal session 9000.*`;
     }
 
-    // 3. PO-4412 AUDIT CLUE
+    // 5. PO-4412 AUDIT CLUE
     if (p.includes('po-4412') || p.includes('audit') || p.includes('clue') || p.includes('invoice') || p.includes('procurement')) {
         return `### 🔍 PO-4412 Audit Discrepancy Packet
 
@@ -158,8 +225,8 @@ ${JSON.stringify(characterObj, null, 2)}
 3. Cross-references vendor routing with David Bowman's terminal logs to unlock Sector 7 door codes.`;
     }
 
-    // 4. ACT 3 / ENDING BRANCH
-    if (p.includes('ending') || p.includes('branch') || p.includes('act 3') || p.includes('escape') || p.includes('omega')) {
+    // 6. ACT 3 / ENDING BRANCH
+    if (p.includes('ending') || p.includes('branch') || p.includes('act 3') || p.includes('escape') || p.includes('omega') || p.includes('story')) {
         return `### 🧩 Act 3 Narrative Branches (Project Omega Convergence)
 
 Here are three interconnected ending pathways based on AUDIT-04's discovery:
@@ -182,14 +249,15 @@ Here are three interconnected ending pathways based on AUDIT-04's discovery:
 
     return `### 👁️ OmniCorp Intranet Narrative Architecture
 
-Understood, Architect. Analyzing corporate lore parameters and Project Omega recursion:
+Understood, Architect. Analyzing corporate lore parameters regarding **"${prompt}"**:
 
-- **Active State:** Iteration 14 is active (${charCount} characters registered, ${lineCount} decision pathways mapped). AUDIT-04 is presently unraveling PO-4412's link to the biological preservation containers in Sector 7.
-- **Narrative Recommendation:** Keep the banality of corporate bureaucracy front and center. The cosmic dread hits hardest when disguised beneath spreadsheet errors, HR compliance forms, and nonchalant Slack/chat banter between employees who don't realize they are trapped.
+- **Active State:** Iteration 14 is active with ${charCount} characters registered and ${lineCount} decision pathways mapped. AUDIT-04 is presently unraveling PO-4412's link to the biological preservation containers in Sector 7.
+- **Narrative Advice:** Embed clues subtly inside sterile corporate paperwork. Dread works best when hidden behind mundane procurement numbers, HR acronyms, and automated system logs.
 
-*Try asking me to:*
-- **"Create Sector 7 Hazmat Tech"** (generates character JSON with 1-click roster import)
-- **"Draft Act 2 Chat for Bowman"** (creates authentic terminal dialogue)
-- **"Formulate PO-4412 Audit Clue"** (generates forensic accounting puzzles)
-- **"Suggest Act 3 Ending Branch"** (maps branching choices)`;
+*Try asking me:*
+- 👥 **"Create a Sector 7 Bio-Tech"** (generates character JSON with 1-click roster import)
+- 📋 **"Tell me about Sarah Kone"** or **"Tell me about David Bowman"**
+- 💬 **"Draft Act 2 Chat for Bowman"** (creates authentic terminal dialogue)
+- 🔍 **"Formulate PO-4412 Audit Clue"** (generates forensic accounting puzzles)
+- 🧩 **"Suggest Act 3 Ending Branch"** (maps branching choices)`;
 }

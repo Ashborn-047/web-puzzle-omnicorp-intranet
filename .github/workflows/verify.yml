@@ -41,6 +41,7 @@ jobs:
         env:
           VITE_NVIDIA_API_KEY: ${{ secrets.VITE_NVIDIA_API_KEY }}
           VITE_NVIDIA_API_KEY_ALT: ${{ secrets.VITE_NVIDIA_API_KEY_ALT }}
+          VITE_OPENROUTER_API_KEY: ${{ secrets.VITE_OPENROUTER_API_KEY }}
         
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

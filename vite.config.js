@@ -12,6 +12,25 @@ export default defineConfig({
   base: '/web-puzzle-omnicorp-intranet/',
   server: {
     proxy: {
+      '/web-puzzle-omnicorp-intranet/api/nvidia': {
+        target: 'https://integrate.api.nvidia.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/web-puzzle-omnicorp-intranet\/api\/nvidia/, '')
+      },
+      '/api/nvidia': {
+        target: 'https://integrate.api.nvidia.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/nvidia/, '')
+      }
+    }
+  },
+  preview: {
+    proxy: {
+      '/web-puzzle-omnicorp-intranet/api/nvidia': {
+        target: 'https://integrate.api.nvidia.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/web-puzzle-omnicorp-intranet\/api\/nvidia/, '')
+      },
       '/api/nvidia': {
         target: 'https://integrate.api.nvidia.com',
         changeOrigin: true,

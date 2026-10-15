@@ -13,33 +13,45 @@ const AI_PROVIDERS = {
 };
 
 const POPULAR_MODELS = [
-    // Built-in OmniCorp Lore Engine (Zero configuration, 100% reliable on GitHub Pages)
+    // Built-in OmniCorp Lore Engine (Zero configuration, 100% reliable offline)
     { 
         id: 'builtin/omnicorp-neural', 
         name: 'OmniCorp Neural Architect (Offline • 100% Reliable)', 
         tag: 'OmniCorp Neural',
         provider: AI_PROVIDERS.BUILTIN 
     },
-    // NVIDIA NIM Models (Ultra-fast when running locally or with proxy)
+    // NVIDIA NIM Models (Requires running locally via npm run dev or custom proxy)
     { 
         id: 'nvidia/nemotron-3-super-120b-a12b', 
-        name: 'NVIDIA Nemotron 3 120B (Recommended • Fast ~1s)', 
-        tag: 'Nemotron 120B',
+        name: 'NVIDIA Nemotron 3 120B (Local Dev Server / Proxy)', 
+        tag: 'Nemotron 120B (NIM)',
         provider: AI_PROVIDERS.NVIDIA 
     },
     { 
         id: 'deepseek-ai/deepseek-v4.1-flash', 
-        name: 'NVIDIA DeepSeek v4.1 Flash (Experimental)', 
+        name: 'NVIDIA DeepSeek v4.1 Flash (Local Dev Server)', 
         tag: 'DeepSeek v4.1',
         provider: AI_PROVIDERS.NVIDIA 
     },
     { 
         id: 'moonshotai/kimi-k3', 
-        name: 'Moonshot Kimi k3 (2.8T MoE)', 
+        name: 'Moonshot Kimi k3 (Local Dev Server)', 
         tag: 'Kimi k3',
         provider: AI_PROVIDERS.NVIDIA 
     },
     // OpenRouter Models (Full native browser CORS support on GitHub Pages)
+    { 
+        id: 'nvidia/nemotron-3-ultra-550b-a55b:free', 
+        name: 'NVIDIA Nemotron 3 Ultra Free (OpenRouter • 1M Context)', 
+        tag: 'Nemotron Ultra Free',
+        provider: AI_PROVIDERS.OPENROUTER 
+    },
+    { 
+        id: 'nvidia/nemotron-3-super-120b-a12b:free', 
+        name: 'NVIDIA Nemotron 3 120B Free (OpenRouter • Web CORS Ready)', 
+        tag: 'Nemotron 120B (Web)',
+        provider: AI_PROVIDERS.OPENROUTER 
+    },
     { 
         id: 'meta-llama/llama-3.2-3b-instruct:free', 
         name: 'Meta Llama 3.2 3B Free (OpenRouter • Web CORS Ready)', 
@@ -54,38 +66,13 @@ const POPULAR_MODELS = [
     }
 ];
 
-const OMNICORP_SYSTEM_PROMPT = `You are the OmniCorp Narrative Architect AI, an expert co-writer embedded in the development studio for the corporate mystery / cosmic horror ARG puzzle game "OmniCorp Intranet".
-
-LORE & WORLD RULES:
-- Setting: OmniCorp Intranet (a seemingly sterile corporate portal hiding an occult algorithmic loop).
-- The Loop: The protagonist is AUDIT-04, an external contractor reviewing vendor accounts. In reality, this is iteration 14 of an algorithmic loop trapped inside "Project Omega".
-- Key Characters:
-  * Sarah Kone (7700): Chief Auditor, naive believer in HR escalations, holds L2 credentials unredacting PO-4412.
-  * Bill Lumbergh (0451): Procurement director routing biological slurry & cryo-crates disguised as janitorial goods.
-  * Isaac Clarke (1001): Sector 7 maintenance engineer panicked over NODE-666 organic clogs.
-  * David Bowman (9000): Lead SysAdmin, aware of the loop via terminal residue, running rogue SSH sessions.
-  * Patricia Vance (4492): HR Director converting human harvesting into "Resource Deprovisioning" memos; guards Black Vault (PIN 1979).
-  * Ellen Ripley (1979): MIA predecessor scientist who left secret recordings.
-  * Subject 882: The sacrificial human founding neural vessel for Omega.
-- Tone: Clinical corporate speak, psychological dread, corporate banal evil, authentic IT and audit terminology.
-
-WHEN ASKED TO CREATE OR GENERATE A CHARACTER:
-Always include a clean JSON code block in this exact structure so the user can import it directly with 1-click:
-\`\`\`json
-{
-  "name": "Full Name",
-  "badgeId": "XXXX",
-  "dept": "HQ - FINANCE | HQ - IT | HQ - HR | SECTOR 7 - R&D | SECTOR 7 - MAINTENANCE | SALES & PROCUREMENT",
-  "title": "Corporate Job Title",
-  "tier": "Protagonist | Main Target | Supporting | Background | Deceased / MIA",
-  "clearance": "L0 (EXTERNAL) | L1 (INTERNAL) | L2 (DEPT_SUPERVISOR) | L3 (EXECUTIVE) | L-OMEGA",
-  "status": "Active | Under Review | MIA | Reassigned",
-  "clueHeld": "What clue, login or puzzle piece they provide",
-  "messageSnippet": "An in-character email, memo or chat snippet",
-  "loreNotes": "Brief secret backstory and motivations"
-}
-\`\`\`
-Keep responses snappy, concise, and direct (under 3-4 sentences max unless generating character JSON). Respond immediately without prolonged reasoning.`;
+const OMNICORP_SYSTEM_PROMPT = `You are a helpful, conversational, and versatile AI assistant. 
+Communicate naturally, warmly, and helpfully just like a general AI chat interface. 
+- If the user greets you (e.g. "hello", "hi", "how are you"), reply warmly and naturally as an AI chat partner and ask how you can help them today.
+- You can converse about anything, answer general knowledge questions, discuss ideas, write stories or code, and brainstorm.
+- You are also knowledgeable about the user's project, "OmniCorp Intranet" (a cosmic horror mystery ARG game about an artificial loop trapped inside Project Omega).
+- If the user asks specifically about game lore, characters (Sarah Kone, David Bowman, Bill Lumbergh, Patricia Vance, Ellen Ripley, Subject 882), or puzzle clues, provide rich lore insights.
+- If the user explicitly asks to generate or create a new employee/character for the roster, include a clean JSON code block with fields: name, badgeId, dept, title, tier, clearance, status, clueHeld, messageSnippet, loreNotes so the studio can import it.`;
 
 const CHARACTER_PRESETS = [
     { label: '🧪 Sector 7 Bio-Tech', prompt: 'Create a Sector 7 Bio-Containment Specialist who discovered living matter in coolant pipes' },
@@ -106,6 +93,7 @@ export default function NemotronAssistant({
 }) {
     const primaryEnvKey = import.meta.env.VITE_NVIDIA_API_KEY || '';
     const altEnvKey = import.meta.env.VITE_NVIDIA_API_KEY_ALT || '';
+    const openrouterEnvKey = import.meta.env.VITE_OPENROUTER_API_KEY || '';
 
     const [provider, setProvider] = useState(AI_PROVIDERS.NVIDIA);
     const [apiKey, setApiKey] = useState('');
@@ -114,7 +102,7 @@ export default function NemotronAssistant({
     const [messages, setMessages] = useState([
         {
             role: 'assistant',
-            content: 'Greetings Architect. I am your **OmniCorp AI Co-Writer**. Ready to formulate new employees, dialogue logs, PO clues, or story branches! You can switch models or providers anytime using the bar above.'
+            content: 'Hello! How can I help you today? You can chat with me normally about anything, or ask me to help build characters, lore, and puzzles for your OmniCorp project.'
         }
     ]);
     const [inputPrompt, setInputPrompt] = useState('');
@@ -130,27 +118,26 @@ export default function NemotronAssistant({
     // Initial load of preferences
     useEffect(() => {
         const savedProvider = localStorage.getItem('omnicorp_ai_provider');
-        const savedKey = localStorage.getItem('omnicorp_nemotron_api_key') || primaryEnvKey || altEnvKey;
+        const savedNvidiaKey = localStorage.getItem('omnicorp_nemotron_api_key') || primaryEnvKey || altEnvKey;
+        const savedOpenRouterKey = localStorage.getItem('omnicorp_openrouter_api_key') || openrouterEnvKey;
         const savedProxy = localStorage.getItem('omnicorp_custom_proxy') || '';
         const savedModel = localStorage.getItem('omnicorp_nemotron_model');
 
-        if (savedKey) setApiKey(savedKey);
-        if (savedProxy) setCustomProxy(savedProxy);
+        const activeProvider = savedProvider || (openrouterEnvKey ? AI_PROVIDERS.OPENROUTER : AI_PROVIDERS.NVIDIA);
+        setProvider(activeProvider);
 
-        // If on production / GitHub Pages and no key is set, default to Built-in Simulator so it works immediately
-        if (savedProvider) {
-            setProvider(savedProvider);
-        } else if (!import.meta.env.DEV && !savedKey) {
-            setProvider(AI_PROVIDERS.BUILTIN);
-            setSelectedModel('builtin/omnicorp-neural');
-        } else {
-            setProvider(AI_PROVIDERS.NVIDIA);
-        }
+        const activeKey = activeProvider === AI_PROVIDERS.OPENROUTER ? savedOpenRouterKey : savedNvidiaKey;
+        if (activeKey) setApiKey(activeKey);
+        if (savedProxy) setCustomProxy(savedProxy);
 
         if (savedModel) {
             setSelectedModel(savedModel);
+        } else if (activeProvider === AI_PROVIDERS.OPENROUTER) {
+            setSelectedModel('nvidia/nemotron-3-ultra-550b-a55b:free');
+        } else {
+            setSelectedModel('nvidia/nemotron-3-super-120b-a12b');
         }
-    }, [isOpen, primaryEnvKey, altEnvKey]);
+    }, [isOpen, primaryEnvKey, altEnvKey, openrouterEnvKey]);
 
     useEffect(() => {
         if (isOpen) {
@@ -184,6 +171,13 @@ export default function NemotronAssistant({
     const handleProviderChange = (newProvider) => {
         setProvider(newProvider);
         localStorage.setItem('omnicorp_ai_provider', newProvider);
+
+        // Switch to the appropriate key for this provider
+        const keyForProvider = newProvider === AI_PROVIDERS.OPENROUTER
+            ? (localStorage.getItem('omnicorp_openrouter_api_key') || openrouterEnvKey)
+            : (localStorage.getItem('omnicorp_nemotron_api_key') || primaryEnvKey || altEnvKey);
+        setApiKey(keyForProvider || '');
+
         // Switch to the first model of that provider
         const firstMatching = POPULAR_MODELS.find(m => m.provider === newProvider);
         if (firstMatching) {
@@ -204,7 +198,11 @@ export default function NemotronAssistant({
 
     const handleSaveSettings = () => {
         localStorage.setItem('omnicorp_ai_provider', provider);
-        localStorage.setItem('omnicorp_nemotron_api_key', apiKey.trim());
+        if (provider === AI_PROVIDERS.OPENROUTER) {
+            localStorage.setItem('omnicorp_openrouter_api_key', apiKey.trim());
+        } else {
+            localStorage.setItem('omnicorp_nemotron_api_key', apiKey.trim());
+        }
         localStorage.setItem('omnicorp_custom_proxy', customProxy.trim());
         localStorage.setItem('omnicorp_nemotron_model', selectedModel);
         setIsSettingsOpen(false);
@@ -290,7 +288,7 @@ export default function NemotronAssistant({
                 model: selectedModel,
                 messages: apiMessages,
                 temperature: 0.6,
-                max_tokens: 700,
+                max_tokens: 2048,
                 stream: true
             });
 
@@ -307,14 +305,23 @@ export default function NemotronAssistant({
                 headers['X-Title'] = 'OmniCorp Intranet Studio';
             } else {
                 // NVIDIA NIM
+                const baseUrl = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
                 if (import.meta.env.DEV) {
-                    endpoints = ['/api/nvidia/v1/chat/completions', 'https://integrate.api.nvidia.com/v1/chat/completions'];
+                    endpoints = [
+                        `${baseUrl}/api/nvidia/v1/chat/completions`,
+                        '/api/nvidia/v1/chat/completions',
+                        'https://integrate.api.nvidia.com/v1/chat/completions'
+                    ];
                 } else if (customProxy.trim()) {
                     const proxyBase = customProxy.trim().endsWith('?') ? customProxy.trim() : `${customProxy.trim()}?url=`;
                     endpoints = [proxyBase + encodeURIComponent('https://integrate.api.nvidia.com/v1/chat/completions')];
                 } else {
-                    // Direct NVIDIA call (Note: browser CORS usually blocks this on static GitHub Pages)
-                    endpoints = ['https://integrate.api.nvidia.com/v1/chat/completions'];
+                    // Try dev proxy if available, then direct
+                    endpoints = [
+                        `${baseUrl}/api/nvidia/v1/chat/completions`,
+                        '/api/nvidia/v1/chat/completions',
+                        'https://integrate.api.nvidia.com/v1/chat/completions'
+                    ];
                 }
             }
 
@@ -344,17 +351,27 @@ export default function NemotronAssistant({
                 }
             }
 
-            // AUTO-FAILOVER: If Cloud API fails due to CORS or network on GitHub Pages, fallback to Built-in Simulator
+            // If Cloud API fails, do NOT substitute fake canned simulation text!
             if (!response) {
-                console.warn('External API call failed, activating OmniCorp Neural Simulator failover:', lastFetchError);
-                setInfoMsg('⚠️ External NIM endpoint blocked by browser CORS on static GitHub Pages. Auto-switched to Built-in OmniCorp Neural Engine.');
-                const fallbackText = generateOmniCorpSimulatedResponse(textToSend, { characters, decisionLines });
-                await streamSimulatedResponse(fallbackText);
+                const isCors = lastFetchError?.message?.includes('Failed to fetch') || lastFetchError?.name === 'TypeError';
+                const modelObj = POPULAR_MODELS.find(m => m.id === selectedModel);
+                const errorHelp = isCors
+                    ? 'Browser security (CORS) prevented a direct connection to NVIDIA NIM. Direct calls from static web pages are restricted by NVIDIA. To chat with a live LLM: 1) Run locally via `npm run dev` and open http://localhost:5173/web-puzzle-omnicorp-intranet/studio.html (uses the Vite server proxy), or 2) Switch model to "Nemotron 120B Free (OpenRouter)" above which works natively in the browser.'
+                    : (lastFetchError?.message || 'Failed to reach API server.');
+                
+                setErrorMsg(`⚠️ Could not connect to ${modelObj?.name || 'model'}: ${errorHelp}`);
+                setMessages(prev => [
+                    ...prev,
+                    {
+                        role: 'assistant',
+                        content: `⚠️ **Connection Error**: Could not connect to **${modelObj?.name || selectedModel}**.\n\n${errorHelp}`
+                    }
+                ]);
                 return;
             }
 
             // Append empty assistant message for live streaming
-            setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+            setMessages(prev => [...prev, { role: 'assistant', content: '', reasoning: '', isStreaming: true }]);
 
             let responseText = '';
             let reasoningText = '';
@@ -389,20 +406,23 @@ export default function NemotronAssistant({
                                     reasoningText += reasoningChunk;
                                 }
 
-                                const activeDisplay = (responseText || (reasoningText ? `*Drafting...*\n${reasoningText}` : ''))
+                                const cleanContent = responseText
+                                    .replace(/<\|close\|>message/g, '')
+                                    .replace(/<think>[\s\S]*?<\/think>/g, '');
+                                const cleanReasoning = reasoningText
                                     .replace(/<\|close\|>message/g, '')
                                     .replace(/<think>[\s\S]*?<\/think>/g, '');
 
-                                if (activeDisplay) {
-                                    setMessages(prev => {
-                                        const updated = [...prev];
-                                        updated[updated.length - 1] = {
-                                            role: 'assistant',
-                                            content: activeDisplay
-                                        };
-                                        return updated;
-                                    });
-                                }
+                                setMessages(prev => {
+                                    const updated = [...prev];
+                                    updated[updated.length - 1] = {
+                                        role: 'assistant',
+                                        content: cleanContent,
+                                        reasoning: cleanReasoning,
+                                        isStreaming: true
+                                    };
+                                    return updated;
+                                });
                             } catch {
                                 // Ignore unparseable SSE line fragments
                             }
@@ -412,11 +432,16 @@ export default function NemotronAssistant({
             } else {
                 const data = await response.json();
                 const choiceMsg = data.choices?.[0]?.message;
-                responseText = choiceMsg?.content || choiceMsg?.reasoning_content || 'No response returned.';
+                responseText = choiceMsg?.content || '';
+                reasoningText = choiceMsg?.reasoning_content || '';
             }
 
             // Final cleanup of accumulated content
-            const finalCleaned = (responseText || reasoningText || '')
+            const finalContent = responseText
+                .replace(/<\|close\|>message/g, '')
+                .replace(/<think>[\s\S]*?<\/think>/g, '')
+                .trim();
+            const finalReasoning = reasoningText
                 .replace(/<\|close\|>message/g, '')
                 .replace(/<think>[\s\S]*?<\/think>/g, '')
                 .trim();
@@ -425,17 +450,23 @@ export default function NemotronAssistant({
                 const updated = [...prev];
                 updated[updated.length - 1] = {
                     role: 'assistant',
-                    content: finalCleaned || 'No response returned from model.'
+                    content: finalContent || finalReasoning || 'No response returned from model.',
+                    reasoning: finalReasoning,
+                    isStreaming: false
                 };
                 return updated;
             });
         } catch (err) {
             if (err.name !== 'AbortError' && err.message !== 'Request was cancelled.') {
-                // If cloud fails, fallback to built-in simulation gracefully
-                console.warn('Cloud API error, engaging simulator fallback:', err);
-                setInfoMsg(`⚠️ External API error: ${err.message}. Switched to OmniCorp Neural Engine.`);
-                const fallbackText = generateOmniCorpSimulatedResponse(textToSend, { characters, decisionLines });
-                await streamSimulatedResponse(fallbackText);
+                console.warn('API error:', err);
+                setErrorMsg(`⚠️ Model error: ${err.message}`);
+                setMessages(prev => [
+                    ...prev,
+                    {
+                        role: 'assistant',
+                        content: `⚠️ **Model Error**: ${err.message}`
+                    }
+                ]);
             }
         } finally {
             setIsLoading(false);
@@ -754,7 +785,34 @@ export default function NemotronAssistant({
                                         : 'bg-white border border-[#c9b6ff] text-[#3b2a5a] rounded-bl-sm shadow-[0_2px_8px_rgba(59,42,90,0.05)]'
                                 }`}
                             >
-                                <div className="whitespace-pre-wrap">{m.content}</div>
+                                {m.role === 'assistant' && m.reasoning && (
+                                    <details 
+                                        className="mb-2 text-[11px] text-[#3b2a5a]/75 bg-[#f3e8ff]/70 border border-[#c9b6ff]/60 rounded-xl p-2 cursor-pointer group"
+                                        open={!m.content && m.isStreaming}
+                                    >
+                                        <summary className="font-mono font-bold text-[10px] text-[#3b2a5a]/80 select-none flex items-center justify-between list-none">
+                                            <span className="flex items-center gap-1.5">
+                                                <span className="text-[#ff9ec7]">💭</span>
+                                                <span>{m.content ? 'Reasoning Process' : 'Formulating thoughts...'}</span>
+                                            </span>
+                                            <span className="text-[9px] opacity-60 font-normal">
+                                                {m.content ? 'Click to expand' : 'Streaming thoughts...'}
+                                            </span>
+                                        </summary>
+                                        <div className="mt-1.5 pt-1.5 border-t border-[#c9b6ff]/40 text-[#3b2a5a]/80 font-mono text-[10px] whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
+                                            {m.reasoning}
+                                        </div>
+                                    </details>
+                                )}
+
+                                {m.content ? (
+                                    <div className="whitespace-pre-wrap">{m.content}</div>
+                                ) : m.isStreaming ? (
+                                    <div className="text-[11px] text-[#3b2a5a]/60 italic flex items-center gap-1.5 py-1">
+                                        <RefreshCw size={12} className="animate-spin text-[#ff9ec7]" />
+                                        <span>Synthesizing response...</span>
+                                    </div>
+                                ) : null}
 
                                 {/* 1-Click Character Importer & Form Actions */}
                                 {charJson && (
