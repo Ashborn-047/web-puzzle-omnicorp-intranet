@@ -326,6 +326,18 @@ export default function NarrativeStudio({ isOpen = true, onClose, isStandalone =
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [selectedDossierChar, setSelectedDossierChar] = useState(null);
 
+    // Auto-open dossier if URL contains ?dossier=... or ?char=...
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const targetId = params.get('dossier') || params.get('char');
+        if (targetId && characters.length > 0) {
+            const found = characters.find(c => c.id === targetId || c.badgeId === targetId);
+            if (found) {
+                setSelectedDossierChar(found);
+            }
+        }
+    }, [characters]);
+
     const handleUpdateCharacter = (updatedChar) => {
         setCharacters(prev => prev.map(c => c.id === updatedChar.id ? updatedChar : c));
         setSelectedDossierChar(updatedChar);
@@ -1460,6 +1472,7 @@ export default function NarrativeStudio({ isOpen = true, onClose, isStandalone =
                     onClose={() => setSelectedDossierChar(null)}
                     onUpdateCharacter={handleUpdateCharacter}
                     onOpenEditForm={handleOpenEditChar}
+                    onSelectCharacter={(c) => setSelectedDossierChar(c)}
                     decisionLines={decisionLines}
                     characters={characters}
                 />
