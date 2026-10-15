@@ -126,7 +126,7 @@ export default function CharacterDossierModal({
         if (effectiveProvider === 'openrouter' && !apiKey && savedNvidiaKey && import.meta.env.DEV) {
             effectiveProvider = 'nvidia';
             apiKey = savedNvidiaKey;
-            selectedModel = 'nvidia/nemotron-4-340b-instruct';
+            selectedModel = 'nvidia/nemotron-3-super-120b-a12b';
         }
 
         // If offline simulation or no keys at all
@@ -356,13 +356,34 @@ COLLABORATIVE CO-WRITING INSTRUCTIONS:
                                   err.message.toLowerCase().includes('unauthorized') || 
                                   err.message.includes('401');
                 setAiError(err.message);
+
+                const simText = generateOmniCorpSimulatedResponse(
+                    `Character ${character.name} in ${character.dept}. ${textToSend}`,
+                    { characters, decisionLines }
+                );
+                const collaborativeEnding = `\n\n---\n🤝 **Collaborative Check & Refinements:**\n` +
+                    `How would you like to proceed? We can:\n` +
+                    `1. Adjust their emotional tone (make them more paranoid vs sterile corporate).\n` +
+                    `2. Connect them directly to Sarah Kone's financial investigation or Vance's HR threats.\n` +
+                    `3. Change or refine any part of this description before saving.\n\n` +
+                    `*What changes or additions would you like to make?*`;
+
+                const notice = isAuthErr
+                    ? `> ⚠️ *Live cloud key missing or unauthorized. Click **"🔑 Set OpenRouter Key"** above to paste your key (\`sk-or-v1-...\`).*`
+                    : `> ℹ️ *Cloud service notice (${err.message}). Displaying built-in narrative generator.*`;
+
                 setChatMessages(prev => [
                     ...prev,
                     { 
                         role: 'assistant', 
-                        content: isAuthErr 
-                            ? `⚠️ **API Key Notice:** ${err.message}\n\nYour OpenRouter API key is missing or not recognized. Click **"🔑 Set OpenRouter Key"** above to paste your key (\`sk-or-v1-...\`), or set it in \`.env.local\`.` 
-                            : `⚠️ **Connection Notice:** ${err.message}` 
+                        content: simText + `\n\n` + notice + collaborativeEnding,
+                        suggestions: [
+                            `Option A: Make them a reluctant whistleblower`,
+                            `Option B: Make them an unwitting corporate pawn`,
+                            `Make their tone more frantic and paranoid`,
+                            `Add an encrypted USB clue with PO-4412 discrepancy`,
+                            `Prompt me with 3 more story questions`
+                        ]
                     }
                 ]);
                 if (isAuthErr) {
