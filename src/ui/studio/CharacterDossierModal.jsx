@@ -92,6 +92,34 @@ export default function CharacterDossierModal({
         line => line.fromCharId === character.id || line.toCharId === character.id
     );
 
+    const incomingLinks = decisionLines.filter(line => line.toCharId === character.id);
+    const outgoingLinks = decisionLines.filter(line => line.fromCharId === character.id);
+    const isProtagonist = character.tier === 'Protagonist' || character.id === 'char_audit04';
+    const isClimaxTarget = character.id === 'char_subject882' || (character.name || '').toLowerCase().includes('subject 882');
+
+    const characterPlotHoles = [];
+    if (!isProtagonist && incomingLinks.length === 0) {
+        characterPlotHoles.push({
+            type: 'ORPHAN',
+            title: 'Unreachable Personnel (Orphan Lead)',
+            desc: 'Has 0 incoming decision lines. Players currently have no narrative path or terminal clue to discover this character in-game.'
+        });
+    }
+    if (!isClimaxTarget && incomingLinks.length > 0 && outgoingLinks.length === 0 && character.tier !== 'Background') {
+        characterPlotHoles.push({
+            type: 'DEAD_END',
+            title: 'Investigation Dead End',
+            desc: 'Players discover this character, but there are no outgoing decision lines or leads pointing to the next suspect.'
+        });
+    }
+    if (!character.clueHeld || character.clueHeld.length < 5) {
+        characterPlotHoles.push({
+            type: 'MISSING_CLUE',
+            title: 'Missing Puzzle Clue',
+            desc: 'No security credential pair, password, or physical puzzle item is assigned to this personnel file.'
+        });
+    }
+
     // Quick Character switching in roster
     const currentIndex = characters.findIndex(c => c.id === character.id);
     const handlePrevChar = () => {
@@ -433,6 +461,37 @@ COLLABORATIVE CO-WRITING INSTRUCTIONS:
     // ==========================================
     const renderDossierContent = () => (
         <div className="space-y-4">
+            {/* Real-time Narrative Plot Hole Alert */}
+            {characterPlotHoles.length > 0 && (
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-2xl p-3.5 space-y-2 shadow-xs">
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-xs font-bold text-amber-950">
+                            <AlertTriangle size={15} className="text-amber-600" />
+                            <span>Narrative Audit: {characterPlotHoles.length} Plot Hole Issue{characterPlotHoles.length > 1 ? 's' : ''} Flagged</span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setViewMode('split');
+                                handleSendChat(`Let's resolve this continuity flaw for ${character.name}: ${characterPlotHoles[0].title}. Propose an immediate resolution that connects smoothly with our OmniCorp ARG puzzle canon.`);
+                            }}
+                            className="px-2.5 py-1 bg-[#3b2a5a] text-[#ffd6e8] hover:bg-[#2c1e44] rounded-xl text-[11px] font-bold flex items-center gap-1 border border-[#ff9ec7] transition-all cursor-pointer shadow-xs"
+                        >
+                            <Sparkles size={12} className="text-[#ff9ec7]" />
+                            <span>Fix with AI Co-Writer</span>
+                        </button>
+                    </div>
+                    <div className="space-y-1 text-xs text-amber-900">
+                        {characterPlotHoles.map((ph, idx) => (
+                            <div key={idx} className="flex items-start gap-1.5 pl-1 leading-snug">
+                                <span className="font-bold shrink-0">• {ph.title}:</span>
+                                <span className="text-amber-900/80">{ph.desc}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Clue & Recorded Voice Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {/* Clue / Credential */}

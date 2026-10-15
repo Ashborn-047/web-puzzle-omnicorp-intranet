@@ -12,6 +12,7 @@ import StudioSecurityGate from './StudioSecurityGate.jsx';
 import StudioSyncModal from './StudioSyncModal.jsx';
 import NemotronAssistant from './NemotronAssistant.jsx';
 import CharacterDossierModal from './CharacterDossierModal.jsx';
+import PlotHoleAuditor from './PlotHoleAuditor.jsx';
 import { generateRandomCharacter } from './omnicorpSimulator.js';
 
 // Pre-loaded Canon Characters
@@ -675,6 +676,13 @@ export default function NarrativeStudio({ isOpen = true, onClose, isStandalone =
                         >
                             <FileText size={14} /> JSON Export
                         </button>
+                        <button
+                            onClick={() => setActiveStudioTab('plot_holes')}
+                            className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 ${activeStudioTab === 'plot_holes' ? 'bg-[#3b2a5a] text-[#ffd6e8] shadow-[0_3px_8px_rgba(59,42,90,0.1),inset_0_1px_0_rgba(255,255,255,1)] border border-[#ff9ec7]' : 'text-[#3b2a5a]/70 hover:text-[#3b2a5a]'}`}
+                        >
+                            <AlertTriangle size={14} className={activeStudioTab === 'plot_holes' ? 'text-[#ff9ec7]' : 'text-[#3b2a5a]'} />
+                            <span>Plot Holes & Continuity</span>
+                        </button>
                     </div>
 
                     {/* Sync & AI Actions */}
@@ -1132,6 +1140,27 @@ export default function NarrativeStudio({ isOpen = true, onClose, isStandalone =
                             </pre>
                         </div>
                     </div>
+                )}
+
+                {/* PLOT HOLE AUDITOR TAB */}
+                {activeStudioTab === 'plot_holes' && (
+                    <PlotHoleAuditor
+                        characters={characters}
+                        decisionLines={decisionLines}
+                        onSelectCharacter={(char) => setSelectedDossierChar(char)}
+                        onOpenEditForm={handleOpenEditChar}
+                        onOpenAddDecisionLine={(targetCharId) => {
+                            if (targetCharId) {
+                                setLinkData(prev => ({ ...prev, fromCharId: targetCharId }));
+                            }
+                            setIsLinkModalOpen(true);
+                        }}
+                        onUpdateCharacter={handleUpdateCharacter}
+                        onAddDecisionLine={(newLine) => {
+                            setDecisionLines(prev => [...prev, newLine]);
+                            showToast('Added decision line to story graph!');
+                        }}
+                    />
                 )}
                 </div>
 
