@@ -27,8 +27,22 @@ export default function CharacterDossierModal({
     const [isAiGenerating, setIsAiGenerating] = useState(false);
     const [aiError, setAiError] = useState('');
     const [appliedSuccess, setAppliedSuccess] = useState('');
+    const [showKeyConfig, setShowKeyConfig] = useState(false);
+    const [openRouterKeyInput, setOpenRouterKeyInput] = useState(() => {
+        return localStorage.getItem('omnicorp_openrouter_api_key') || import.meta.env.VITE_OPENROUTER_API_KEY || '';
+    });
     const messagesEndRef = useRef(null);
     const abortRef = useRef(null);
+
+    const handleSaveOpenRouterKey = (val) => {
+        const trimmed = (val || '').trim();
+        localStorage.setItem('omnicorp_openrouter_api_key', trimmed);
+        localStorage.setItem('omnicorp_ai_provider', 'openrouter');
+        setOpenRouterKeyInput(trimmed);
+        setShowKeyConfig(false);
+        setAppliedSuccess('Saved OpenRouter API Key!');
+        setTimeout(() => setAppliedSuccess(''), 2500);
+    };
 
     // Initial greeting in collaborative chat
     const getInitialGreeting = (char) => {
@@ -101,14 +115,22 @@ export default function CharacterDossierModal({
         abortRef.current = new AbortController();
 
         const savedProvider = localStorage.getItem('omnicorp_ai_provider') || 'openrouter';
-        const savedNvidiaKey = localStorage.getItem('omnicorp_nemotron_api_key') || import.meta.env.VITE_NVIDIA_API_KEY || '';
-        const savedOpenRouterKey = localStorage.getItem('omnicorp_openrouter_api_key') || import.meta.env.VITE_OPENROUTER_API_KEY || '';
-        const selectedModel = localStorage.getItem('omnicorp_nemotron_model') || 'nvidia/nemotron-3-ultra-550b-a55b:free';
+        const savedNvidiaKey = (localStorage.getItem('omnicorp_nemotron_api_key') || import.meta.env.VITE_NVIDIA_API_KEY || '').trim();
+        const savedOpenRouterKey = (localStorage.getItem('omnicorp_openrouter_api_key') || import.meta.env.VITE_OPENROUTER_API_KEY || '').trim();
+        let selectedModel = localStorage.getItem('omnicorp_nemotron_model') || 'nvidia/nemotron-3-ultra-550b-a55b:free';
 
-        const apiKey = savedProvider === 'openrouter' ? savedOpenRouterKey : savedNvidiaKey;
+        let effectiveProvider = savedProvider;
+        let apiKey = effectiveProvider === 'openrouter' ? savedOpenRouterKey : savedNvidiaKey;
 
-        // If offline simulation or no keys
-        if (savedProvider === 'builtin' || (!apiKey && !import.meta.env.DEV)) {
+        // Auto-switch to local NVIDIA dev proxy if openrouter key is not yet set, but local dev has NVIDIA key
+        if (effectiveProvider === 'openrouter' && !apiKey && savedNvidiaKey && import.meta.env.DEV) {
+            effectiveProvider = 'nvidia';
+            apiKey = savedNvidiaKey;
+            selectedModel = 'nvidia/nemotron-4-340b-instruct';
+        }
+
+        // If offline simulation or no keys at all
+        if (effectiveProvider === 'builtin' || !apiKey) {
             try {
                 await new Promise(r => setTimeout(r, 450));
                 let simText = '';
@@ -127,6 +149,10 @@ export default function CharacterDossierModal({
                     );
                 }
 
+                const offlineNotice = !apiKey 
+                    ? `\n\n> ℹ️ *Generated via Built-in Offline Simulation. (To connect live cloud Nemotron models, click **"🔑 Set API Key"** in the top bar to paste your OpenRouter key).*`
+                    : '';
+
                 const collaborativeEnding = `\n\n---\n🤝 **Collaborative Check & Refinements:**\n` +
                     `How would you like to proceed? We can:\n` +
                     `1. Adjust their emotional tone (make them more paranoid vs sterile corporate).\n` +
@@ -138,7 +164,7 @@ export default function CharacterDossierModal({
                     ...prev,
                     {
                         role: 'assistant',
-                        content: simText + collaborativeEnding,
+                        content: simText + offlineNotice + collaborativeEnding,
                         suggestions: [
                             `Option A: Make them a reluctant whistleblower`,
                             `Option B: Make them an unwitting corporate pawn`,
@@ -199,7 +225,7 @@ COLLABORATIVE CO-WRITING INSTRUCTIONS:
                 'Authorization': `Bearer ${apiKey.trim()}`
             };
 
-            if (savedProvider === 'openrouter') {
+            if (effectiveProvider === 'openrouter') {
                 endpoints = ['https://openrouter.ai/api/v1/chat/completions'];
                 headers['HTTP-Referer'] = window.location.origin;
                 headers['X-Title'] = 'OmniCorp Intranet Studio';
@@ -326,11 +352,22 @@ COLLABORATIVE CO-WRITING INSTRUCTIONS:
             });
         } catch (err) {
             if (err.name !== 'AbortError') {
+                const isAuthErr = err.message.toLowerCase().includes('authentication') || 
+                                  err.message.toLowerCase().includes('unauthorized') || 
+                                  err.message.includes('401');
                 setAiError(err.message);
                 setChatMessages(prev => [
                     ...prev,
-                    { role: 'assistant', content: `⚠️ **Connection Notice:** ${err.message}` }
+                    { 
+                        role: 'assistant', 
+                        content: isAuthErr 
+                            ? `⚠️ **API Key Notice:** ${err.message}\n\nYour OpenRouter API key is missing or not recognized. Click **"🔑 Set OpenRouter Key"** above to paste your key (\`sk-or-v1-...\`), or set it in \`.env.local\`.` 
+                            : `⚠️ **Connection Notice:** ${err.message}` 
+                    }
                 ]);
+                if (isAuthErr) {
+                    setShowKeyConfig(true);
+                }
             }
         } finally {
             setIsAiGenerating(false);
@@ -637,10 +674,59 @@ COLLABORATIVE CO-WRITING INSTRUCTIONS:
                                             Collaborative Narrative Partner: {character.name}
                                         </h3>
                                     </div>
-                                    <span className="text-[10px] font-mono bg-white/20 text-[#ffd6e8] px-2 py-0.5 rounded-full border border-white/20">
-                                        Co-Writing Session
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowKeyConfig(!showKeyConfig)}
+                                            className="text-[10px] font-mono bg-white/20 hover:bg-white/30 text-[#ffd6e8] px-2.5 py-1 rounded-full border border-white/25 flex items-center gap-1 cursor-pointer transition-colors"
+                                            title="Configure OpenRouter API Key"
+                                        >
+                                            <Key size={11} className="text-[#ff9ec7]" />
+                                            <span>{openRouterKeyInput ? '🔑 Key Active' : '⚠️ Set OpenRouter Key'}</span>
+                                        </button>
+                                        <span className="text-[10px] font-mono bg-white/20 text-[#ffd6e8] px-2 py-0.5 rounded-full border border-white/20 hidden sm:inline">
+                                            Co-Writing Session
+                                        </span>
+                                    </div>
                                 </div>
+
+                                {/* Collapsible API Key Drawer */}
+                                {showKeyConfig && (
+                                    <div className="p-3 bg-black/40 border border-[#ff9ec7]/40 rounded-xl space-y-2 text-xs text-white animate-in fade-in duration-150">
+                                        <div className="flex items-center justify-between">
+                                            <span className="font-bold flex items-center gap-1.5 text-[#ffd6e8]">
+                                                <Key size={13} className="text-[#ff9ec7]" /> OpenRouter API Key Setup
+                                            </span>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setShowKeyConfig(false)} 
+                                                className="text-white/60 hover:text-white cursor-pointer"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                        <p className="text-[11px] text-[#ffd6e8]/80 leading-relaxed">
+                                            Paste your OpenRouter key (<code>sk-or-v1-...</code>) to connect live Nemotron models directly in your browser without CORS blocks.
+                                        </p>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="password"
+                                                value={openRouterKeyInput}
+                                                onChange={(e) => setOpenRouterKeyInput(e.target.value)}
+                                                placeholder="sk-or-v1-..."
+                                                className="flex-1 px-3 py-1.5 bg-black/60 border border-[#c9b6ff]/50 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-[#ff9ec7]"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSaveOpenRouterKey(openRouterKeyInput)}
+                                                className="px-3.5 py-1.5 bg-[#ff9ec7] hover:bg-[#ff85b7] text-[#3b2a5a] font-bold rounded-lg text-xs cursor-pointer shadow-xs"
+                                            >
+                                                Save Key
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <p className="text-[11px] text-[#ffd6e8]/85 leading-relaxed">
                                     The AI acts as your creative partner. It drafts story arcs, asks thoughtful questions, suggests alternative motives, and helps you refine details before applying them directly to the roster.
                                 </p>
