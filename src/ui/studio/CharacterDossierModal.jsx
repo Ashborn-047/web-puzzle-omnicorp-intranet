@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
     X, Sparkles, Send, Bot, RefreshCw, Key, MessageSquare, 
     FileText, User, Shield, Tag, Building2, CheckCircle2, 
-    Copy, Edit3, ArrowRight, GitCommit, AlertTriangle, ChevronRight
+    Copy, Edit3, ArrowRight, GitCommit, AlertTriangle, ChevronRight,
+    HelpCircle, Wand2, ThumbsUp, MessageCircle
 } from 'lucide-react';
 import { generateOmniCorpSimulatedResponse } from './omnicorpSimulator.js';
 
@@ -21,22 +22,52 @@ export default function CharacterDossierModal({
     const [isSavingLore, setIsSavingLore] = useState(false);
     const [loreSavedSuccess, setLoreSavedSuccess] = useState(false);
 
-    // AI Co-Writer states
-    const [customPrompt, setCustomPrompt] = useState('');
+    // Collaborative AI Co-Writer states
+    const [chatInput, setChatInput] = useState('');
     const [isAiGenerating, setIsAiGenerating] = useState(false);
-    const [aiResponse, setAiResponse] = useState('');
-    const [aiReasoning, setAiReasoning] = useState('');
     const [aiError, setAiError] = useState('');
     const [appliedSuccess, setAppliedSuccess] = useState('');
+    const messagesEndRef = useRef(null);
     const abortRef = useRef(null);
 
+    // Initial greeting in collaborative chat
+    const getInitialGreeting = (char) => {
+        const missingItems = [];
+        if (!char.clueHeld) missingItems.push('Forensic Puzzle Clue');
+        if (!char.messageSnippet) missingItems.push('Recorded Voice Memo / Chat Residue');
+        if (!char.loreNotes) missingItems.push('Backstory & Lore Notes');
+
+        const auditSummary = missingItems.length === 0
+            ? '✅ Core personnel fields populated. Ready for creative deepening and consistency checking.'
+            : `⚠️ **Needs Creative Input:** ${missingItems.join(', ')}`;
+
+        return {
+            role: 'assistant',
+            content: `Greetings, Architect! I have opened the personnel file for **${char.name}** (${char.title} • ${char.dept} • Clearance ${char.clearance}).\n\n📊 **Collaborative File Audit:**\n- 🔑 **Clue / Credential:** ${char.clueHeld ? `\`${char.clueHeld}\`` : '⚠️ *Unassigned*'}\n- 💬 **Recorded Voice:** ${char.messageSnippet ? `"${char.messageSnippet}"` : '⚠️ *None on file*'}\n- 📜 **Lore & Motive:** ${char.loreNotes ? char.loreNotes : '⚠️ *Needs expansion*'}\n- 🔍 **Status:** ${auditSummary}\n\n🤝 **Here are 3 key decisions we should make together:**\n1. **Secret Motive & Allegiance:** Is ${char.name} loyal to OmniCorp, secretly leaking documents to Sarah Kone, or an unwitting victim caught in Project Omega?\n2. **Forensic Trace:** What physical evidence or password code should players discover from them in the game?\n3. **Tone & Conflict:** Should they sound coldly bureaucratic, frantic and sleep-deprived, or terrified of HR Director Patricia Vance?\n\nWhat direction do you envision? You can answer any question above, give instructions, or pick a starting prompt below!`,
+            suggestions: [
+                `🔍 Audit ${char.name}'s details & prompt me with 2 story directions`,
+                `Let's draft their secret motive and fear of HR deprovisioning`,
+                `Design a forensic puzzle clue for ${char.name} to hold`,
+                `Draft a frantic intercepted audio memo from ${char.name}`
+            ]
+        };
+    };
+
+    const [chatMessages, setChatMessages] = useState(() => [getInitialGreeting(character)]);
+
+    // Reset when character changes
     useEffect(() => {
         setEditableLore(character.loreNotes || '');
-        setAiResponse('');
-        setAiReasoning('');
+        setChatMessages([getInitialGreeting(character)]);
         setAiError('');
         setAppliedSuccess('');
     }, [character.id]);
+
+    useEffect(() => {
+        if (activeTab === 'ai_cowriter') {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [chatMessages, isAiGenerating, activeTab]);
 
     // Character connections in graph
     const relatedLinks = decisionLines.filter(
@@ -55,17 +86,17 @@ export default function CharacterDossierModal({
         setTimeout(() => setLoreSavedSuccess(false), 2200);
     };
 
-    // AI Generation for Character Description / Story
-    const handleRunAiPrompt = async (promptDirective) => {
-        const directiveText = promptDirective || customPrompt;
-        if (!directiveText.trim()) return;
+    // Collaborative AI Co-Writer Send
+    const handleSendMessage = async (userPromptText) => {
+        const textToSend = userPromptText || chatInput;
+        if (!textToSend.trim()) return;
 
+        const updatedHistory = [...chatMessages, { role: 'user', content: textToSend }];
+        setChatMessages(updatedHistory);
+        setChatInput('');
         setIsAiGenerating(true);
         setAiError('');
-        setAiResponse('');
-        setAiReasoning('');
         setAppliedSuccess('');
-        setActiveTab('ai_cowriter');
 
         abortRef.current = new AbortController();
 
@@ -76,26 +107,59 @@ export default function CharacterDossierModal({
 
         const apiKey = savedProvider === 'openrouter' ? savedOpenRouterKey : savedNvidiaKey;
 
-        // If offline simulator selected or no keys available
+        // If offline simulation or no keys
         if (savedProvider === 'builtin' || (!apiKey && !import.meta.env.DEV)) {
             try {
-                await new Promise(r => setTimeout(r, 400));
-                const simText = generateOmniCorpSimulatedResponse(
-                    `Character ${character.name} in ${character.dept}. ${directiveText}`,
-                    { characters, decisionLines }
-                );
-                setAiResponse(simText);
+                await new Promise(r => setTimeout(r, 450));
+                let simText = '';
+                if (textToSend.toLowerCase().includes('audit')) {
+                    simText = `### 🔍 Collaborative Narrative Audit: ${character.name}\n\n` +
+                        `**Department & Clearance Analysis:**\n` +
+                        `- Working in **${character.dept}** with **${character.clearance}** gives them access to internal logs, but Sector 7 anomalies require Level 4+ authorization.\n` +
+                        `- **Potential Conflict:** If ${character.name} discovers Project Omega documentation, it represents an unauthorized security breach.\n\n` +
+                        `**Proposed Story Directions:**\n` +
+                        `- **Option A (Reluctant Whistleblower):** ${character.name} noticed altered PO-4412 manifests and hid an encrypted flash drive before HR could deprovision their badge.\n` +
+                        `- **Option B (OmniCorp Loyal Pawn):** ${character.name} actively rationalizes the strange bio-containment failures as "routine HVAC calibration," leaving behind unintentional clues for the player.`;
+                } else {
+                    simText = generateOmniCorpSimulatedResponse(
+                        `Character ${character.name} in ${character.dept}. ${textToSend}`,
+                        { characters, decisionLines }
+                    );
+                }
+
+                const collaborativeEnding = `\n\n---\n🤝 **Collaborative Check & Refinements:**\n` +
+                    `How would you like to proceed? We can:\n` +
+                    `1. Adjust their emotional tone (make them more paranoid vs sterile corporate).\n` +
+                    `2. Connect them directly to Sarah Kone's financial investigation or Vance's HR threats.\n` +
+                    `3. Change or refine any part of this description before saving.\n\n` +
+                    `*What changes or additions would you like to make?*`;
+
+                setChatMessages(prev => [
+                    ...prev,
+                    {
+                        role: 'assistant',
+                        content: simText + collaborativeEnding,
+                        suggestions: [
+                            `Option A: Make them a reluctant whistleblower`,
+                            `Option B: Make them an unwitting corporate pawn`,
+                            `Make their tone more frantic and paranoid`,
+                            `Add an encrypted USB clue with PO-4412 discrepancy`,
+                            `Prompt me with 3 more story questions`
+                        ]
+                    }
+                ]);
             } catch (err) {
                 setAiError(err.message);
             } finally {
                 setIsAiGenerating(false);
+                abortRef.current = null;
             }
             return;
         }
 
         try {
-            const systemPrompt = `You are the OmniCorp Narrative Co-Writer and Worldbuilding Assistant for the cosmic horror ARG puzzle game "OmniCorp Intranet".
-You are collaborating on the detailed character dossier for:
+            const systemPrompt = `You are a collaborative storytelling co-writer and narrative architect for the cosmic horror ARG puzzle game "OmniCorp Intranet".
+You are collaborating directly with the game designer to co-create and polish the personnel dossier for:
 - Name: ${character.name} (Badge ID: ${character.badgeId})
 - Corporate Role: ${character.title}
 - Department: ${character.dept}
@@ -103,16 +167,27 @@ You are collaborating on the detailed character dossier for:
 - Story Tier: ${character.tier}
 - Clue/Credential Held: ${character.clueHeld || 'None'}
 - Current Quote/Memo: ${character.messageSnippet || 'None'}
-- Existing Lore Notes: ${character.loreNotes || 'None'}
+- Current Lore Notes: ${character.loreNotes || 'None'}
 
-Provide rich, atmospheric narrative text with psychological depth, corporate dread, and sharp forensic ARG puzzle details. Format cleanly with markdown.`;
+COLLABORATIVE CO-WRITING INSTRUCTIONS:
+1. ACT AS AN ACTIVE CREATIVE PARTNER: Do not just write a static essay. Always collaborate by proposing ideas, inviting the user's creative judgment, and asking how they would like to modify it.
+2. CHECK NECESSARY DETAILS: Check clearance plausibility, emotional tone, and puzzle clues. Point out anything that is missing or could create higher drama (e.g. "Notice they have Level 2 clearance but access Sub-level 7 — should we make that an unauthorized breach?").
+3. PRESENT OPTIONS: Whenever suggesting a new angle, give 2 distinct choices (Option A vs Option B) so the user can easily choose or synthesize them.
+4. PROMPT THE USER TO CHANGE ANYTHING: Conclude every response with a dedicated section:
+"🤝 Collaborative Check & Next Decisions:"
+- List 2-3 specific questions prompting the user to check or alter details (e.g. tone, clue item, relationship to Sarah Kone, Patricia Vance, or Subject 882).
+- Explicitly ask: "Would you like to change anything in this proposal, or adjust the tone before we apply it?"
+5. Keep corporate atmosphere rich, unsettling, and authentic to cosmic corporate horror. Use clean markdown formatting.`;
+
+            // Prepare messages for LLM
+            const apiMessages = [
+                { role: 'system', content: systemPrompt },
+                ...updatedHistory.slice(-8).map(m => ({ role: m.role, content: m.content }))
+            ];
 
             const payloadBody = JSON.stringify({
                 model: selectedModel,
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: directiveText }
-                ],
+                messages: apiMessages,
                 temperature: 0.7,
                 max_tokens: 2048,
                 stream: true
@@ -171,6 +246,9 @@ Provide rich, atmospheric narrative text with psychological depth, corporate dre
                 throw new Error(lastErr?.message || 'Could not reach AI provider endpoint.');
             }
 
+            // Append empty assistant message for streaming
+            setChatMessages(prev => [...prev, { role: 'assistant', content: '', reasoning: '', isStreaming: true }]);
+
             let accContent = '';
             let accReasoning = '';
 
@@ -196,12 +274,24 @@ Provide rich, atmospheric narrative text with psychological depth, corporate dre
                                 const delta = parsed.choices?.[0]?.delta;
                                 if (delta?.content) {
                                     accContent += delta.content;
-                                    setAiResponse(accContent.replace(/<think>[\s\S]*?<\/think>/g, ''));
                                 }
                                 if (delta?.reasoning_content) {
                                     accReasoning += delta.reasoning_content;
-                                    setAiReasoning(accReasoning);
                                 }
+
+                                const cleanC = accContent.replace(/<think>[\s\S]*?<\/think>/g, '');
+                                const cleanR = accReasoning.replace(/<think>[\s\S]*?<\/think>/g, '');
+
+                                setChatMessages(prev => {
+                                    const updated = [...prev];
+                                    updated[updated.length - 1] = {
+                                        role: 'assistant',
+                                        content: cleanC,
+                                        reasoning: cleanR,
+                                        isStreaming: true
+                                    };
+                                    return updated;
+                                });
                             } catch {
                                 // Ignore partial SSE fragments
                             }
@@ -212,16 +302,35 @@ Provide rich, atmospheric narrative text with psychological depth, corporate dre
                 const data = await response.json();
                 accContent = data.choices?.[0]?.message?.content || '';
                 accReasoning = data.choices?.[0]?.message?.reasoning_content || '';
-                setAiResponse(accContent);
-                setAiReasoning(accReasoning);
             }
 
-            if (!accContent && accReasoning) {
-                setAiResponse(accReasoning);
-            }
+            // Generate smart follow-up collaborative chips based on content
+            const dynamicSuggestions = [
+                `Option A: Emphasize their secret whistleblowing against OmniCorp`,
+                `Option B: Make them an unwitting pawn caught in Sub-level 7`,
+                `Make their voice memo much more panicked and erratic`,
+                `Change the clue into an encrypted flash drive with PO-4412 manifests`,
+                `Prompt me with 3 more questions to refine this character`
+            ];
+
+            setChatMessages(prev => {
+                const updated = [...prev];
+                updated[updated.length - 1] = {
+                    role: 'assistant',
+                    content: accContent.trim() || accReasoning.trim() || 'No response returned from model.',
+                    reasoning: accReasoning.trim(),
+                    isStreaming: false,
+                    suggestions: dynamicSuggestions
+                };
+                return updated;
+            });
         } catch (err) {
             if (err.name !== 'AbortError') {
                 setAiError(err.message);
+                setChatMessages(prev => [
+                    ...prev,
+                    { role: 'assistant', content: `⚠️ **Connection Notice:** ${err.message}` }
+                ]);
             }
         } finally {
             setIsAiGenerating(false);
@@ -229,46 +338,36 @@ Provide rich, atmospheric narrative text with psychological depth, corporate dre
         }
     };
 
-    // Apply AI generation directly to character
-    const handleApplyToBackstory = (mode = 'replace') => {
-        if (!aiResponse.trim()) return;
-        const newLore = mode === 'append' 
-            ? `${editableLore}\n\n${aiResponse.trim()}`
-            : aiResponse.trim();
+    // Apply AI content directly to character fields
+    const handleApplyTextToLore = (text, mode = 'replace') => {
+        if (!text) return;
+        // Strip collaborative questions at the end if present
+        const cleaned = text.split(/\n---\n|\n\*\*Would you like|\nWould you like/i)[0].trim();
+        const newLore = mode === 'append' ? `${editableLore}\n\n${cleaned}` : cleaned;
         setEditableLore(newLore);
-        const updated = {
-            ...character,
-            loreNotes: newLore
-        };
+        const updated = { ...character, loreNotes: newLore };
         onUpdateCharacter(updated);
-        setAppliedSuccess(`Saved to ${character.name}'s lore notes!`);
+        setAppliedSuccess(`Updated backstory for ${character.name}!`);
         setTimeout(() => setAppliedSuccess(''), 3000);
     };
 
-    const handleApplyToQuote = () => {
-        if (!aiResponse.trim()) return;
-        // Strip markdown quotes or code blocks if present
-        const cleaned = aiResponse
-            .replace(/^["'>\s]+/, '')
-            .replace(/["'\s]+$/, '')
-            .split('\n')[0];
-        const updated = {
-            ...character,
-            messageSnippet: cleaned
-        };
+    const handleApplyTextToQuote = (text) => {
+        if (!text) return;
+        // Look for quote marks or take the first clean sentence
+        const quoteMatch = text.match(/"([^"]+)"/);
+        const extracted = quoteMatch ? quoteMatch[1] : text.split('\n')[0].replace(/^[#*>\s]+/, '').trim();
+        const updated = { ...character, messageSnippet: extracted };
         onUpdateCharacter(updated);
         setAppliedSuccess(`Updated voice quote for ${character.name}!`);
         setTimeout(() => setAppliedSuccess(''), 3000);
     };
 
-    const handleApplyToClue = () => {
-        if (!aiResponse.trim()) return;
-        const updated = {
-            ...character,
-            clueHeld: aiResponse.trim().split('\n')[0]
-        };
+    const handleApplyTextToClue = (text) => {
+        if (!text) return;
+        const firstLine = text.split('\n')[0].replace(/^[#*>\s]+/, '').replace(/^(Clue|Item):\s*/i, '').trim();
+        const updated = { ...character, clueHeld: firstLine };
         onUpdateCharacter(updated);
-        setAppliedSuccess(`Updated clue held for ${character.name}!`);
+        setAppliedSuccess(`Updated forensic clue for ${character.name}!`);
         setTimeout(() => setAppliedSuccess(''), 3000);
     };
 
@@ -364,7 +463,7 @@ Provide rich, atmospheric narrative text with psychological depth, corporate dre
                                     : 'bg-gradient-to-r from-[#ffa8ce]/30 to-[#ffd6e8] hover:from-[#ffa8ce]/50 hover:to-[#ffd6e8] text-[#3b2a5a] border border-[#ff9ec7]'
                             }`}
                         >
-                            <Sparkles size={13} className="text-[#ff9ec7]" /> AI Story & Description Co-Writer
+                            <Sparkles size={13} className="text-[#ff9ec7]" /> Collaborative AI Co-Writer
                         </button>
                     </div>
 
@@ -449,7 +548,7 @@ Provide rich, atmospheric narrative text with psychological depth, corporate dre
                                         className="text-[11px] font-bold text-[#3b2a5a] bg-[#ffd6e8]/60 hover:bg-[#ffd6e8] px-2.5 py-1 rounded-xl border border-[#ff9ec7] flex items-center gap-1 transition-colors cursor-pointer"
                                     >
                                         <Sparkles size={12} className="text-[#ff70aa]" />
-                                        <span>Co-Write with AI</span>
+                                        <span>Collaborative AI Co-Writer</span>
                                     </button>
                                 </div>
 
@@ -525,184 +624,265 @@ Provide rich, atmospheric narrative text with psychological depth, corporate dre
                         </div>
                     )}
 
-                    {/* TAB 2: AI STORY & DESCRIPTION CO-WRITER */}
+                    {/* TAB 2: COLLABORATIVE AI CO-WRITER WORKSPACE */}
                     {activeTab === 'ai_cowriter' && (
-                        <div className="space-y-5 animate-in fade-in duration-200">
+                        <div className="space-y-4 animate-in fade-in duration-200 flex flex-col h-full">
                             
-                            {/* AI Action Header */}
-                            <div className="bg-gradient-to-r from-[#3b2a5a] to-[#4e3478] p-4 sm:p-5 rounded-2xl text-white shadow-md space-y-3">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <div className="flex items-center gap-2 text-xs font-mono font-bold text-[#ffd6e8] mb-1">
-                                            <Sparkles size={14} className="text-[#ff9ec7]" />
-                                            <span>AI NARRATIVE ASSISTANT</span>
-                                        </div>
-                                        <h3 className="text-base sm:text-lg font-bold">
-                                            Co-Write & Expand Description for {character.name}
+                            {/* Collaborative Banner */}
+                            <div className="bg-gradient-to-r from-[#3b2a5a] via-[#462d6c] to-[#5a388b] p-4 rounded-2xl text-white shadow-sm space-y-2.5">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Sparkles size={15} className="text-[#ff9ec7]" />
+                                        <h3 className="text-sm font-bold font-serif tracking-wide text-white">
+                                            Collaborative Narrative Partner: {character.name}
                                         </h3>
-                                        <p className="text-xs text-[#ffd6e8]/80 leading-relaxed max-w-xl">
-                                            Choose an instant story prompt below or enter your own custom direction. The AI will formulate lore canon that you can apply with 1-click!
-                                        </p>
                                     </div>
+                                    <span className="text-[10px] font-mono bg-white/20 text-[#ffd6e8] px-2 py-0.5 rounded-full border border-white/20">
+                                        Co-Writing Session
+                                    </span>
                                 </div>
+                                <p className="text-[11px] text-[#ffd6e8]/85 leading-relaxed">
+                                    The AI acts as your creative partner. It drafts story arcs, asks thoughtful questions, suggests alternative motives, and helps you refine details before applying them directly to the roster.
+                                </p>
 
-                                {/* Quick AI Action Buttons */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-white/20">
+                                {/* Quick Prompt Suggestions */}
+                                <div className="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-white/15">
                                     <button
                                         type="button"
-                                        onClick={() => handleRunAiPrompt(`Deepen the secret backstory of ${character.name} (${character.title} in ${character.dept}). Describe what they witnessed in iteration 14 of the loop, their hidden trauma or fear of HR deprovisioning, and their secret link to Project Omega.`)}
+                                        onClick={() => handleSendMessage(`Run a comprehensive narrative audit on ${character.name} (${character.title}, ${character.dept}, Clearance ${character.clearance}). Check for any missing details or lore inconsistencies, propose 2 contrasting story options (Option A vs Option B), and prompt me with 3 creative questions to check.`)}
                                         disabled={isAiGenerating}
-                                        className="p-2.5 bg-white/10 hover:bg-white/20 text-[#ffd6e8] rounded-xl text-xs font-bold text-left border border-white/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                                        className="px-3 py-1.5 bg-gradient-to-r from-[#ff9ec7] to-[#ffd6e8] hover:from-[#ff8cbe] hover:to-[#ffc4de] text-[#3b2a5a] rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                                        title="Audit character details and prompt user with creative choices"
                                     >
-                                        <Sparkles size={14} className="text-[#ff9ec7] shrink-0" />
-                                        <span>Deepen Secret Backstory & Motives</span>
+                                        <Sparkles size={13} className="text-[#3b2a5a]" />
+                                        <span>🔍 Audit & Prompt Me</span>
                                     </button>
-
                                     <button
                                         type="button"
-                                        onClick={() => handleRunAiPrompt(`Draft a tense, in-character decrypted chat or audio log snippet for ${character.name} revealing an anomaly they discovered about PO-4412 or Sector 7.`)}
+                                        onClick={() => handleSendMessage(`Deepen ${character.name}'s secret backstory. Describe what anomaly they discovered in ${character.dept}, their psychological dread, and how it ties into Project Omega.`)}
                                         disabled={isAiGenerating}
-                                        className="p-2.5 bg-white/10 hover:bg-white/20 text-[#ffd6e8] rounded-xl text-xs font-bold text-left border border-white/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                                        className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-[#ffd6e8] rounded-xl text-[11px] font-bold border border-white/15 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
                                     >
-                                        <MessageSquare size={14} className="text-[#ff9ec7] shrink-0" />
-                                        <span>Draft Dialogue Log or Audio Residue</span>
+                                        <FileText size={12} className="text-[#ff9ec7]" /> Deepen Backstory
                                     </button>
-
                                     <button
                                         type="button"
-                                        onClick={() => handleRunAiPrompt(`Design a forensic puzzle clue for ${character.name} to hold (e.g. an unredacted financial PO-4412 manifest, a scrambled terminal passcode, or a classified memo).`)}
+                                        onClick={() => handleSendMessage(`Draft an authentic in-character memo or decrypted chat log from ${character.name} revealing suspicion about PO-4412.`)}
                                         disabled={isAiGenerating}
-                                        className="p-2.5 bg-white/10 hover:bg-white/20 text-[#ffd6e8] rounded-xl text-xs font-bold text-left border border-white/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                                        className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-[#ffd6e8] rounded-xl text-[11px] font-bold border border-white/15 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
                                     >
-                                        <Key size={14} className="text-[#ff9ec7] shrink-0" />
-                                        <span>Create Forensic Puzzle Clue</span>
+                                        <MessageSquare size={12} className="text-[#ff9ec7]" /> Draft Voice Log
                                     </button>
-
                                     <button
                                         type="button"
-                                        onClick={() => handleRunAiPrompt(`Draft a chilling, sterile corporate HR 'Resource Deprovisioning' warning memo from Patricia Vance flagging ${character.name} for memory scrub or reassignment to Sub-level 3.`)}
+                                        onClick={() => handleSendMessage(`Design a forensic puzzle clue for ${character.name} to hold (e.g. an unredacted financial PO-4412 slip, encrypted memory stick, or terminal override code).`)}
                                         disabled={isAiGenerating}
-                                        className="p-2.5 bg-white/10 hover:bg-white/20 text-[#ffd6e8] rounded-xl text-xs font-bold text-left border border-white/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                                        className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-[#ffd6e8] rounded-xl text-[11px] font-bold border border-white/15 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
                                     >
-                                        <AlertTriangle size={14} className="text-[#ff9ec7] shrink-0" />
-                                        <span>Write HR Deprovisioning Warning</span>
+                                        <Key size={12} className="text-[#ff9ec7]" /> Formulate Clue
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleSendMessage(`Draft a chilling HR deprovisioning notice from Patricia Vance warning ${character.name} to cease unauthorized inquiries immediately.`)}
+                                        disabled={isAiGenerating}
+                                        className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-[#ffd6e8] rounded-xl text-[11px] font-bold border border-white/15 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                    >
+                                        <AlertTriangle size={12} className="text-[#ff9ec7]" /> HR Threat Notice
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Custom Prompt Bar */}
-                            <div className="flex gap-2 bg-white p-2 rounded-2xl border border-[#c9b6ff] shadow-sm">
-                                <input
-                                    type="text"
-                                    value={customPrompt}
-                                    onChange={(e) => setCustomPrompt(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleRunAiPrompt()}
-                                    placeholder={`Ask AI anything about ${character.name} (e.g., "Describe their interaction with Sarah Kone")...`}
-                                    className="flex-1 px-3 py-2 text-xs sm:text-sm text-[#3b2a5a] placeholder-[#3b2a5a]/40 bg-transparent focus:outline-none"
-                                />
-                                <button
-                                    onClick={() => handleRunAiPrompt()}
-                                    disabled={isAiGenerating || !customPrompt.trim()}
-                                    className="px-4 py-2 bg-[#3b2a5a] hover:bg-[#2a1a40] text-[#ffd6e8] font-bold text-xs rounded-xl border border-[#ff9ec7] flex items-center gap-1.5 transition-all cursor-pointer shadow-sm disabled:opacity-50"
-                                >
-                                    {isAiGenerating ? <RefreshCw size={13} className="animate-spin" /> : <Send size={13} />}
-                                    <span>Generate</span>
-                                </button>
-                            </div>
-
-                            {/* Notification / Toast */}
+                            {/* Notification banner */}
                             {appliedSuccess && (
-                                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
-                                    <CheckCircle2 size={15} />
+                                <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
+                                    <CheckCircle2 size={14} />
                                     <span>{appliedSuccess}</span>
                                 </div>
                             )}
 
-                            {/* Error Banner */}
-                            {aiError && (
-                                <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs leading-relaxed">
-                                    <strong>AI Request Notice:</strong> {aiError}
-                                </div>
-                            )}
+                            {/* Collaborative Chat Messages */}
+                            <div className="space-y-4 max-h-[46vh] overflow-y-auto pr-1">
+                                {chatMessages.map((msg, idx) => (
+                                    <div 
+                                        key={idx}
+                                        className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} space-y-1`}
+                                    >
+                                        <span className="text-[10px] font-mono font-bold text-[#3b2a5a]/60 px-1">
+                                            {msg.role === 'user' ? 'Architect (You)' : 'AI Co-Writer'}
+                                        </span>
 
-                            {/* Generated Output Box */}
-                            {(aiResponse || isAiGenerating) && (
-                                <div className="bg-white p-5 rounded-2xl border border-[#c9b6ff] shadow-sm space-y-4 animate-in fade-in">
-                                    <div className="flex items-center justify-between pb-2 border-b border-[#c9b6ff]/50">
-                                        <div className="flex items-center gap-2 text-xs font-bold text-[#3b2a5a]">
-                                            <Bot size={15} className="text-[#3b2a5a]" />
-                                            <span>Generated Narrative Proposal</span>
-                                            {isAiGenerating && (
-                                                <span className="text-[10px] font-mono text-purple-700 font-bold flex items-center gap-1">
-                                                    <RefreshCw size={11} className="animate-spin" /> Streaming...
-                                                </span>
+                                        <div 
+                                            className={`rounded-2xl p-4 max-w-[94%] text-xs sm:text-sm leading-relaxed shadow-sm ${
+                                                msg.role === 'user'
+                                                    ? 'bg-[#3b2a5a] text-[#ffd6e8] border border-[#ff9ec7] rounded-br-sm'
+                                                    : 'bg-white border border-[#c9b6ff] text-[#3b2a5a] rounded-bl-sm space-y-3'
+                                            }`}
+                                        >
+                                            {/* Reasoning if available */}
+                                            {msg.reasoning && (
+                                                <details className="text-[11px] text-[#3b2a5a]/70 bg-[#f3e8ff]/60 border border-[#c9b6ff]/60 rounded-xl p-2 cursor-pointer group">
+                                                    <summary className="font-mono font-bold text-[10px] text-[#3b2a5a]/80 select-none flex items-center gap-1.5 list-none">
+                                                        <span>💭</span>
+                                                        <span>Narrative Thinking</span>
+                                                    </summary>
+                                                    <div className="mt-1.5 pt-1.5 border-t border-[#c9b6ff]/40 text-[#3b2a5a]/80 font-mono text-[10px] whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto">
+                                                        {msg.reasoning}
+                                                    </div>
+                                                </details>
+                                            )}
+
+                                            <div className="whitespace-pre-wrap">
+                                                {msg.content || (msg.isStreaming ? 'Formulating proposal...' : '')}
+                                            </div>
+
+                                            {/* 1-Click Action Buttons for Assistant Proposals */}
+                                            {msg.role === 'assistant' && msg.content && !msg.isStreaming && idx > 0 && (
+                                                <div className="pt-2.5 border-t border-[#c9b6ff]/50 flex flex-wrap items-center gap-1.5">
+                                                    <button
+                                                        onClick={() => handleApplyTextToLore(msg.content, 'replace')}
+                                                        className="px-2.5 py-1 bg-gradient-to-b from-[#ffa8ce] to-[#ff9ec7] hover:from-[#ff96c4] hover:to-[#f78bb8] text-[#3b2a5a] rounded-lg font-bold text-[11px] border border-[#ff8dbb] shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+                                                        title="Save this narrative into the character's backstory"
+                                                    >
+                                                        <FileText size={11} /> Apply as Backstory
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleApplyTextToLore(msg.content, 'append')}
+                                                        className="px-2.5 py-1 bg-white hover:bg-[#ffd6e8]/40 text-[#3b2a5a] rounded-lg font-bold text-[11px] border border-[#c9b6ff] shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+                                                        title="Append to existing backstory"
+                                                    >
+                                                        ➕ Append
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleApplyTextToQuote(msg.content)}
+                                                        className="px-2.5 py-1 bg-white hover:bg-[#ffd6e8]/40 text-[#3b2a5a] rounded-lg font-bold text-[11px] border border-[#c9b6ff] shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+                                                        title="Extract quote and apply to voice snippet"
+                                                    >
+                                                        <MessageSquare size={11} /> Apply as Quote
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleApplyTextToClue(msg.content)}
+                                                        className="px-2.5 py-1 bg-white hover:bg-[#ffd6e8]/40 text-[#3b2a5a] rounded-lg font-bold text-[11px] border border-[#c9b6ff] shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+                                                        title="Set as clue held"
+                                                    >
+                                                        <Key size={11} /> Apply as Clue
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(msg.content);
+                                                            setAppliedSuccess('Copied text to clipboard!');
+                                                            setTimeout(() => setAppliedSuccess(''), 2000);
+                                                        }}
+                                                        className="p-1 text-[#3b2a5a]/60 hover:text-[#3b2a5a] ml-auto cursor-pointer"
+                                                        title="Copy text"
+                                                    >
+                                                        <Copy size={13} />
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {/* Collaborative Refinement Quick Toggles */}
+                                            {msg.role === 'assistant' && msg.content && !msg.isStreaming && idx > 0 && (
+                                                <div className="pt-2 border-t border-dashed border-[#c9b6ff]/40 flex flex-wrap items-center gap-1.5 text-[10px]">
+                                                    <span className="font-mono font-bold text-[#3b2a5a]/70 flex items-center gap-1">
+                                                        <RefreshCw size={10} className="text-[#ff9ec7]" /> Ask to Change:
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleSendMessage(`Change the tone of this description for ${character.name}: make them sound significantly more paranoid, sleep-deprived, and suspicious of OmniCorp surveillance.`)}
+                                                        className="px-2 py-0.5 bg-[#fbf7ff] hover:bg-[#ffd6e8] text-[#3b2a5a] border border-[#c9b6ff] rounded-md font-semibold cursor-pointer transition-colors"
+                                                    >
+                                                        🎭 More Paranoid
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleSendMessage(`Change the tone for ${character.name}: rewrite this in sterile, detached OmniCorp corporate jargon and compliant doublespeak.`)}
+                                                        className="px-2 py-0.5 bg-[#fbf7ff] hover:bg-[#ffd6e8] text-[#3b2a5a] border border-[#c9b6ff] rounded-md font-semibold cursor-pointer transition-colors"
+                                                    >
+                                                        🏢 Sterile Corporate
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleSendMessage(`Introduce an escalating dispute between ${character.name} and Sarah Kone over unredacted PO-4412 shipping manifests.`)}
+                                                        className="px-2 py-0.5 bg-[#fbf7ff] hover:bg-[#ffd6e8] text-[#3b2a5a] border border-[#c9b6ff] rounded-md font-semibold cursor-pointer transition-colors"
+                                                    >
+                                                        ⚡ Dispute Sarah Kone
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleSendMessage(`Change the clue to an encrypted USB flash drive hidden inside ${character.name}'s ventilation shaft.`)}
+                                                        className="px-2 py-0.5 bg-[#fbf7ff] hover:bg-[#ffd6e8] text-[#3b2a5a] border border-[#c9b6ff] rounded-md font-semibold cursor-pointer transition-colors"
+                                                    >
+                                                        🔑 Switch Clue to USB
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleSendMessage(`Prompt me with 3 creative questions about ${character.name}'s secrets, relationships, and fate so we can refine them together.`)}
+                                                        className="px-2 py-0.5 bg-[#fbf7ff] hover:bg-[#ffd6e8] text-[#3b2a5a] border border-[#c9b6ff] rounded-md font-semibold cursor-pointer transition-colors"
+                                                    >
+                                                        ❓ Prompt Me 3 Questions
+                                                    </button>
+                                                </div>
                                             )}
                                         </div>
-                                    </div>
 
-                                    {/* Reasoning Drawer if available */}
-                                    {aiReasoning && (
-                                        <details className="text-[11px] text-[#3b2a5a]/70 bg-[#f3e8ff]/60 border border-[#c9b6ff]/60 rounded-xl p-2 cursor-pointer group">
-                                            <summary className="font-mono font-bold text-[10px] text-[#3b2a5a]/80 select-none flex items-center gap-1.5 list-none">
-                                                <span>💭</span>
-                                                <span>AI Reasoning Chain</span>
-                                            </summary>
-                                            <div className="mt-1.5 pt-1.5 border-t border-[#c9b6ff]/40 text-[#3b2a5a]/80 font-mono text-[10px] whitespace-pre-wrap leading-relaxed max-h-40 overflow-y-auto">
-                                                {aiReasoning}
+                                        {/* Collaborative Interactive Suggestions / Follow-ups */}
+                                        {msg.suggestions && msg.suggestions.length > 0 && !isAiGenerating && idx === chatMessages.length - 1 && (
+                                            <div className="pt-2 pl-2 space-y-1.5 w-full">
+                                                <span className="text-[10px] font-mono font-bold text-[#3b2a5a]/70 flex items-center gap-1">
+                                                    <Wand2 size={11} className="text-[#ff9ec7]" /> Collaborative Suggestions:
+                                                </span>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {msg.suggestions.map((sugg, sIdx) => (
+                                                        <button
+                                                            key={sIdx}
+                                                            type="button"
+                                                            onClick={() => handleSendMessage(sugg)}
+                                                            className="px-2.5 py-1 bg-white hover:bg-[#ffd6e8]/60 text-[#3b2a5a] text-[10px] font-bold rounded-lg border border-[#c9b6ff] transition-all flex items-center gap-1 cursor-pointer shadow-xs active:scale-95 text-left"
+                                                        >
+                                                            <span>👉 {sugg}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </details>
-                                    )}
-
-                                    {/* Content display */}
-                                    <div className="text-xs sm:text-sm text-[#3b2a5a] leading-relaxed whitespace-pre-wrap bg-[#fbf7ff] p-4 rounded-xl border border-[#c9b6ff]/60">
-                                        {aiResponse || 'Synthesizing narrative...'}
+                                        )}
                                     </div>
+                                ))}
 
-                                    {/* 1-Click Apply Buttons */}
-                                    {!isAiGenerating && aiResponse && (
-                                        <div className="pt-2 flex flex-wrap items-center gap-2">
-                                            <button
-                                                onClick={() => handleApplyToBackstory('replace')}
-                                                className="px-3.5 py-1.5 bg-gradient-to-b from-[#ffa8ce] to-[#ff9ec7] hover:from-[#ff96c4] hover:to-[#f78bb8] text-[#3b2a5a] rounded-xl font-bold text-xs border border-[#ff8dbb] shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
-                                                title="Save this text as the character's main backstory"
-                                            >
-                                                <FileText size={13} /> Replace Backstory
-                                            </button>
-                                            <button
-                                                onClick={() => handleApplyToBackstory('append')}
-                                                className="px-3 py-1.5 bg-white hover:bg-[#ffd6e8]/40 text-[#3b2a5a] rounded-xl font-bold text-xs border border-[#c9b6ff] shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
-                                                title="Append this text to the end of existing lore"
-                                            >
-                                                ➕ Append to Backstory
-                                            </button>
-                                            <button
-                                                onClick={handleApplyToQuote}
-                                                className="px-3 py-1.5 bg-white hover:bg-[#ffd6e8]/40 text-[#3b2a5a] rounded-xl font-bold text-xs border border-[#c9b6ff] shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
-                                                title="Use the first line as their recorded quote snippet"
-                                            >
-                                                <MessageSquare size={13} /> Set as Quote
-                                            </button>
-                                            <button
-                                                onClick={handleApplyToClue}
-                                                className="px-3 py-1.5 bg-white hover:bg-[#ffd6e8]/40 text-[#3b2a5a] rounded-xl font-bold text-xs border border-[#c9b6ff] shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
-                                                title="Use the first line as their clue held"
-                                            >
-                                                <Key size={13} /> Set as Clue
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(aiResponse);
-                                                    setAppliedSuccess('Copied to clipboard!');
-                                                    setTimeout(() => setAppliedSuccess(''), 2000);
-                                                }}
-                                                className="px-3 py-1.5 bg-white hover:bg-slate-50 text-[#3b2a5a]/70 hover:text-[#3b2a5a] rounded-xl font-bold text-xs border border-[#c9b6ff] shadow-xs transition-all cursor-pointer flex items-center gap-1.5 ml-auto"
-                                            >
-                                                <Copy size={13} /> Copy Text
-                                            </button>
-                                        </div>
-                                    )}
+                                {isAiGenerating && (
+                                    <div className="flex items-center gap-2 p-3 text-xs text-[#3b2a5a] font-bold bg-white/80 rounded-xl border border-[#c9b6ff]/60 animate-in fade-in">
+                                        <RefreshCw size={13} className="animate-spin text-[#ff9ec7]" />
+                                        <span>AI is formulating collaborative story options...</span>
+                                    </div>
+                                )}
+                                <div ref={messagesEndRef} />
+                            </div>
+
+                            {/* Chat Input Bar */}
+                            <div className="pt-2 border-t border-[#c9b6ff]/60 space-y-1.5">
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={chatInput}
+                                        onChange={(e) => setChatInput(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && !isAiGenerating && handleSendMessage()}
+                                        placeholder={`Tell AI what to change, refine, or ask for ${character.name}...`}
+                                        className="flex-1 px-3.5 py-2.5 bg-white border border-[#c9b6ff] rounded-xl text-xs sm:text-sm text-[#3b2a5a] placeholder-[#3b2a5a]/40 focus:outline-none focus:ring-2 focus:ring-[#ff9ec7] shadow-xs"
+                                        disabled={isAiGenerating}
+                                    />
+                                    <button
+                                        onClick={() => handleSendMessage()}
+                                        disabled={isAiGenerating || !chatInput.trim()}
+                                        className="px-4 py-2.5 bg-[#3b2a5a] hover:bg-[#2c1e44] text-[#ffd6e8] rounded-xl font-bold text-xs border border-[#ff9ec7] flex items-center gap-1.5 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                                    >
+                                        {isAiGenerating ? <RefreshCw size={13} className="animate-spin" /> : <Send size={13} />}
+                                        <span>Send</span>
+                                    </button>
                                 </div>
-                            )}
+                                <div className="flex items-center justify-between text-[10px] text-[#3b2a5a]/60 px-1 font-mono">
+                                    <span>🤝 Collaborative Partner Mode Active</span>
+                                    <span>Press Enter to send</span>
+                                </div>
+                            </div>
 
                         </div>
                     )}
