@@ -11,6 +11,7 @@ import initialSavedData from '../../data/narrative_studio_save.json';
 import StudioSecurityGate from './StudioSecurityGate.jsx';
 import StudioSyncModal from './StudioSyncModal.jsx';
 import NemotronAssistant from './NemotronAssistant.jsx';
+import CharacterDossierModal from './CharacterDossierModal.jsx';
 import { generateRandomCharacter } from './omnicorpSimulator.js';
 
 // Pre-loaded Canon Characters
@@ -323,6 +324,13 @@ export default function NarrativeStudio({ isOpen = true, onClose, isStandalone =
     // Selected / Editing Character
     const [editingChar, setEditingChar] = useState(null);
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const [selectedDossierChar, setSelectedDossierChar] = useState(null);
+
+    const handleUpdateCharacter = (updatedChar) => {
+        setCharacters(prev => prev.map(c => c.id === updatedChar.id ? updatedChar : c));
+        setSelectedDossierChar(updatedChar);
+        showToast(`Updated dossier for ${updatedChar.name}`);
+    };
 
     // Form inputs
     const [formData, setFormData] = useState({
@@ -831,14 +839,16 @@ export default function NarrativeStudio({ isOpen = true, onClose, isStandalone =
                                     {filteredCharacters.map(char => (
                                         <div
                                             key={char.id}
-                                            className="bg-white/95 border border-[#c9b6ff] hover:border-[#ff9ec7] rounded-2xl p-5 flex flex-col justify-between transition-all group shadow-[0_6px_20px_rgba(59,42,90,0.06),0_1px_3px_rgba(59,42,90,0.02),inset_0_1.5px_0_rgba(255,255,255,1),inset_0_-1px_0_rgba(201,182,255,0.3)] hover:shadow-[0_10px_28px_rgba(59,42,90,0.12),inset_0_1.5px_0_rgba(255,255,255,1)] relative"
+                                            onClick={() => setSelectedDossierChar(char)}
+                                            className="bg-white/95 border border-[#c9b6ff] hover:border-[#ff9ec7] rounded-2xl p-5 flex flex-col justify-between transition-all group shadow-[0_6px_20px_rgba(59,42,90,0.06),0_1px_3px_rgba(59,42,90,0.02),inset_0_1.5px_0_rgba(255,255,255,1),inset_0_-1px_0_rgba(201,182,255,0.3)] hover:shadow-[0_10px_28px_rgba(255,158,199,0.22),inset_0_1.5px_0_rgba(255,255,255,1)] relative cursor-pointer hover:scale-[1.008]"
+                                            title={`Click to open full dossier & AI story co-writer for ${char.name}`}
                                         >
                                             <div>
                                                 {/* Card Header */}
                                                 <div className="flex items-start justify-between gap-2 mb-2.5">
                                                     <div>
                                                         <div className="flex items-center gap-2">
-                                                            <h3 className="font-bold text-[#3b2a5a] text-sm tracking-tight">{char.name}</h3>
+                                                            <h3 className="font-bold text-[#3b2a5a] text-sm tracking-tight group-hover:text-[#ff4d94] transition-colors">{char.name}</h3>
                                                             <span className="text-[10px] font-mono bg-[#f3e8ff] text-[#3b2a5a] px-2 py-0.5 rounded-lg border border-[#c9b6ff] shadow-sm font-bold">
                                                                 ID: {char.badgeId}
                                                             </span>
@@ -846,16 +856,22 @@ export default function NarrativeStudio({ isOpen = true, onClose, isStandalone =
                                                         <p className="text-xs text-[#3b2a5a]/80 font-bold mt-0.5">{char.title}</p>
                                                     </div>
 
-                                                    <div className="flex items-center gap-1">
+                                                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                                                         <button
-                                                            onClick={() => handleOpenEditChar(char)}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleOpenEditChar(char);
+                                                            }}
                                                             className="p-1.5 bg-[#f3e8ff]/80 hover:bg-[#ffd6e8] text-[#3b2a5a] rounded-lg transition-all border border-[#c9b6ff]/60 hover:border-[#ff9ec7] cursor-pointer shadow-xs"
                                                             title="Edit character"
                                                         >
                                                             <Edit3 size={13} />
                                                         </button>
                                                         <button
-                                                            onClick={() => handleDeleteChar(char.id, char.name)}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeleteChar(char.id, char.name);
+                                                            }}
                                                             className="p-1.5 bg-[#fbf7ff] hover:bg-rose-50 text-[#3b2a5a]/60 hover:text-rose-600 rounded-lg transition-all border border-[#c9b6ff]/50 hover:border-rose-300 cursor-pointer shadow-xs"
                                                             title={`Delete ${char.name}`}
                                                         >
@@ -895,23 +911,39 @@ export default function NarrativeStudio({ isOpen = true, onClose, isStandalone =
 
                                             {/* Lore notes & Card Action Footer */}
                                             <div className="pt-2.5 border-t border-[#c9b6ff]/50 flex items-center justify-between gap-2 mt-auto">
-                                                <div className="text-[10px] text-[#3b2a5a]/70 line-clamp-2 flex-1">
-                                                    {char.loreNotes || ''}
+                                                <div className="text-[10px] text-[#3b2a5a]/70 line-clamp-2 flex-1 group-hover:text-[#3b2a5a] transition-colors">
+                                                    {char.loreNotes || 'Click to expand full dossier & co-write with AI...'}
                                                 </div>
-                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                                                     <button
-                                                        onClick={() => handleOpenEditChar(char)}
-                                                        className="px-2.5 py-1 bg-[#f3e8ff]/80 hover:bg-[#ffd6e8] text-[#3b2a5a] text-[10px] font-bold rounded-lg border border-[#c9b6ff]/70 flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedDossierChar(char);
+                                                        }}
+                                                        className="px-2.5 py-1 bg-gradient-to-r from-[#ffd6e8] to-[#ffa8ce] hover:from-[#ffc4de] hover:to-[#ff9ec7] text-[#3b2a5a] text-[10px] font-bold rounded-lg border border-[#ff8dbb] flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+                                                        title="Inspect full dossier and co-write story with AI"
+                                                    >
+                                                        <Sparkles size={11} className="text-[#3b2a5a]" /> Dossier
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleOpenEditChar(char);
+                                                        }}
+                                                        className="px-2 py-1 bg-[#f3e8ff]/80 hover:bg-[#ffd6e8] text-[#3b2a5a] text-[10px] font-bold rounded-lg border border-[#c9b6ff]/70 flex items-center gap-1 transition-all cursor-pointer shadow-xs"
                                                         title="Edit character details"
                                                     >
                                                         <Edit3 size={11} /> Edit
                                                     </button>
                                                     <button
-                                                        onClick={() => handleDeleteChar(char.id, char.name)}
-                                                        className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-900 text-[10px] font-bold rounded-lg border border-rose-200 flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteChar(char.id, char.name);
+                                                        }}
+                                                        className="p-1 text-[#3b2a5a]/40 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
                                                         title={`Delete ${char.name}`}
                                                     >
-                                                        <Trash2 size={11} /> Delete
+                                                        <Trash2 size={12} />
                                                     </button>
                                                 </div>
                                             </div>
@@ -1420,6 +1452,18 @@ export default function NarrativeStudio({ isOpen = true, onClose, isStandalone =
                 }}
                 onNotify={showToast}
             />
+
+            {/* DETAILED CHARACTER DOSSIER & AI STORY CO-WRITER MODAL */}
+            {selectedDossierChar && (
+                <CharacterDossierModal
+                    character={selectedDossierChar}
+                    onClose={() => setSelectedDossierChar(null)}
+                    onUpdateCharacter={handleUpdateCharacter}
+                    onOpenEditForm={handleOpenEditChar}
+                    decisionLines={decisionLines}
+                    characters={characters}
+                />
+            )}
 
         </div>
     );
