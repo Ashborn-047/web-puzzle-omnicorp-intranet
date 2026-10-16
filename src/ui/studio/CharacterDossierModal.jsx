@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { generateOmniCorpSimulatedResponse } from './omnicorpSimulator.js';
 import DossierHeader from './dossier/DossierHeader.jsx';
 import DossierDetailsPane from './dossier/DossierDetailsPane.jsx';
 import DossierAiCoWriter from './dossier/DossierAiCoWriter.jsx';
@@ -171,53 +170,9 @@ export default function CharacterDossierModal({
         // If no OpenRouter key is set, guide the user directly
         if (!apiKey) {
             setShowKeyConfig(true);
-            try {
-                await new Promise(r => setTimeout(r, 350));
-                let simText = '';
-                if (textToSend.toLowerCase().includes('audit')) {
-                    simText = `### 🔍 Collaborative Narrative Audit: ${character.name}\n\n` +
-                        `**Department & Clearance Analysis:**\n` +
-                        `- Working in **${character.dept}** with **${character.clearance}** gives them access to internal logs, but Sector 7 anomalies require Level 4+ authorization.\n` +
-                        `- **Potential Conflict:** If ${character.name} discovers Project Omega documentation, it represents an unauthorized security breach.\n\n` +
-                        `**Proposed Story Directions:**\n` +
-                        `- **Option A (Reluctant Whistleblower):** ${character.name} noticed altered PO-4412 manifests and hid an encrypted flash drive before HR could deprovision their badge.\n` +
-                        `- **Option B (OmniCorp Loyal Pawn):** ${character.name} actively rationalizes the strange bio-containment failures as "routine HVAC calibration," leaving behind unintentional clues for the player.`;
-                } else {
-                    simText = generateOmniCorpSimulatedResponse(
-                        `Character ${character.name} in ${character.dept}. ${textToSend}`,
-                        { characters, decisionLines }
-                    );
-                }
-
-                const keyNotice = `\n\n> 🔑 **CORS Mode Ready (OpenRouter):** *Please paste your OpenRouter API key (\`sk-or-v1-...\`) into the top drawer above to connect live Nemotron models directly in your browser. (Showing built-in draft in the meantime).*`;
-
-                const collaborativeEnding = `\n\n---\n🤝 **Collaborative Check & Refinements:**\n` +
-                    `How would you like to proceed? We can:\n` +
-                    `1. Adjust their emotional tone (make them more paranoid vs sterile corporate).\n` +
-                    `2. Connect them directly to Sarah Kone's financial investigation or Vance's HR threats.\n` +
-                    `3. Change or refine any part of this description before saving.\n\n` +
-                    `*What changes or additions would you like to make?*`;
-
-                setChatMessages(prev => [
-                    ...prev,
-                    {
-                        role: 'assistant',
-                        content: simText + keyNotice + collaborativeEnding,
-                        suggestions: [
-                            `Option A: Make them a reluctant whistleblower`,
-                            `Option B: Make them an unwitting corporate pawn`,
-                            `Make their tone more frantic and paranoid`,
-                            `Add an encrypted USB clue with PO-4412 discrepancy`,
-                            `Prompt me with 3 more story questions`
-                        ]
-                    }
-                ]);
-            } catch (err) {
-                setAiError(err.message);
-            } finally {
-                setIsAiGenerating(false);
-                abortRef.current = null;
-            }
+            setAiError('OpenRouter API key required. Please enter your key in the top drawer to connect Nemotron 3 Ultra.');
+            setIsAiGenerating(false);
+            abortRef.current = null;
             return;
         }
 
@@ -373,37 +328,7 @@ COLLABORATIVE CO-WRITING INSTRUCTIONS:
                 const isAuthErr = err.message.toLowerCase().includes('authentication') || 
                                   err.message.toLowerCase().includes('unauthorized') || 
                                   err.message.includes('401');
-                setAiError(err.message);
-
-                const simText = generateOmniCorpSimulatedResponse(
-                    `Character ${character.name} in ${character.dept}. ${textToSend}`,
-                    { characters, decisionLines }
-                );
-                const collaborativeEnding = `\n\n---\n🤝 **Collaborative Check & Refinements:**\n` +
-                    `How would you like to proceed? We can:\n` +
-                    `1. Adjust their emotional tone (make them more paranoid vs sterile corporate).\n` +
-                    `2. Connect them directly to Sarah Kone's financial investigation or Vance's HR threats.\n` +
-                    `3. Change or refine any part of this description before saving.\n\n` +
-                    `*What changes or additions would you like to make?*`;
-
-                const notice = isAuthErr
-                    ? `> ⚠️ *Live cloud key missing or unauthorized. Click **"🔑 Set OpenRouter Key"** above to paste your key (\`sk-or-v1-...\`).*`
-                    : `> ℹ️ *Cloud service notice (${err.message}). Displaying built-in narrative generator.*`;
-
-                setChatMessages(prev => [
-                    ...prev,
-                    { 
-                        role: 'assistant', 
-                        content: simText + `\n\n` + notice + collaborativeEnding,
-                        suggestions: [
-                            `Option A: Make them a reluctant whistleblower`,
-                            `Option B: Make them an unwitting corporate pawn`,
-                            `Make their tone more frantic and paranoid`,
-                            `Add an encrypted USB clue with PO-4412 discrepancy`,
-                            `Prompt me with 3 more story questions`
-                        ]
-                    }
-                ]);
+                setAiError(`OpenRouter Error: ${err.message}`);
                 if (isAuthErr) {
                     setShowKeyConfig(true);
                 }

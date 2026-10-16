@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
     Bot, Send, Sparkles, X, RefreshCw, AlertCircle, 
-    ChevronDown, SlidersHorizontal, UserPlus
+    SlidersHorizontal, UserPlus, Zap
 } from 'lucide-react';
-import { generateOmniCorpSimulatedResponse } from './omnicorpSimulator.js';
 import {
-    AI_PROVIDERS,
-    POPULAR_MODELS,
+    ACTIVE_MODEL,
     OMNICORP_SYSTEM_PROMPT,
     CHARACTER_PRESETS,
     QUICK_INSPIRATION_CHIPS
@@ -24,41 +22,26 @@ export default function NemotronAssistant({
 }) {
     const openrouterEnvKey = import.meta.env.VITE_OPENROUTER_API_KEY || '';
 
-    const [provider, setProvider] = useState(AI_PROVIDERS.OPENROUTER);
     const [apiKey, setApiKey] = useState('');
-    const [selectedModel, setSelectedModel] = useState('nvidia/nemotron-3-ultra-550b-a55b:free');
     const [messages, setMessages] = useState([
         {
             role: 'assistant',
-            content: 'Hello! How can I help you today? You can chat with me normally about anything, or ask me to help build characters, lore, and puzzles for your OmniCorp project.'
+            content: 'Hello! I am Nemotron 3 Ultra, your AI co-writer. How can I help you today? You can ask me to draft characters, formulate puzzle clues, critique lore, or chat about anything.'
         }
     ]);
     const [inputPrompt, setInputPrompt] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
-    const [infoMsg] = useState('');
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [showCharPresets, setShowCharPresets] = useState(false);
     const [savedBadge, setSavedBadge] = useState(false);
     const messagesEndRef = useRef(null);
     const abortControllerRef = useRef(null);
 
-    // Initial load of preferences
+    // Initial load of OpenRouter key
     useEffect(() => {
-        const savedProvider = localStorage.getItem('omnicorp_ai_provider');
         const savedOpenRouterKey = localStorage.getItem('omnicorp_openrouter_api_key') || openrouterEnvKey;
-        const savedModel = localStorage.getItem('omnicorp_nemotron_model');
-
-        const activeProvider = savedProvider || AI_PROVIDERS.OPENROUTER;
-        setProvider(activeProvider);
-
         if (savedOpenRouterKey) setApiKey(savedOpenRouterKey);
-
-        if (savedModel && POPULAR_MODELS.some(m => m.id === savedModel)) {
-            setSelectedModel(savedModel);
-        } else {
-            setSelectedModel('nvidia/nemotron-3-ultra-550b-a55b:free');
-        }
     }, [isOpen, openrouterEnvKey]);
 
     useEffect(() => {
@@ -69,42 +52,6 @@ export default function NemotronAssistant({
 
     if (!isOpen) return null;
 
-    const handleModelChange = (newModel) => {
-        if (!newModel) return;
-        if (isLoading && abortControllerRef.current) {
-            abortControllerRef.current.abort();
-        }
-        setSelectedModel(newModel);
-        localStorage.setItem('omnicorp_nemotron_model', newModel);
-
-        const modelObj = POPULAR_MODELS.find(m => m.id === newModel);
-        if (modelObj) {
-            setProvider(modelObj.provider);
-            localStorage.setItem('omnicorp_ai_provider', modelObj.provider);
-        }
-
-        const modelName = modelObj ? modelObj.name : newModel;
-        setMessages(prev => [
-            ...prev,
-            { role: 'assistant', content: `⚡ Active model switched to **${modelName}**.` }
-        ]);
-    };
-
-    const handleProviderChange = (newProvider) => {
-        setProvider(newProvider);
-        localStorage.setItem('omnicorp_ai_provider', newProvider);
-
-        const keyForProvider = localStorage.getItem('omnicorp_openrouter_api_key') || openrouterEnvKey;
-        setApiKey(keyForProvider || '');
-
-        const firstMatching = POPULAR_MODELS.find(m => m.provider === newProvider);
-        if (firstMatching) {
-            setSelectedModel(firstMatching.id);
-            localStorage.setItem('omnicorp_nemotron_model', firstMatching.id);
-        }
-        setErrorMsg('');
-    };
-
     const handleCancelRequest = () => {
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
@@ -114,48 +61,20 @@ export default function NemotronAssistant({
     };
 
     const handleSaveSettings = () => {
-        localStorage.setItem('omnicorp_ai_provider', provider);
         localStorage.setItem('omnicorp_openrouter_api_key', apiKey.trim());
-        localStorage.setItem('omnicorp_nemotron_model', selectedModel);
         setIsSettingsOpen(false);
         setErrorMsg('');
         setSavedBadge(true);
         setTimeout(() => setSavedBadge(false), 2000);
     };
 
-    const streamSimulatedResponse = async (fullText) => {
-        setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
-        const words = fullText.split(' ');
-        let accumulated = '';
-
-        for (let i = 0; i < words.length; i++) {
-            if (abortControllerRef.current?.signal.aborted) {
-                break;
-            }
-            accumulated += (i === 0 ? '' : ' ') + words[i];
-            
-            if (i % 2 === 0 || i === words.length - 1) {
-                const currentText = accumulated;
-                setMessages(prev => {
-                    const updated = [...prev];
-                    updated[updated.length - 1] = {
-                        role: 'assistant',
-                        content: currentText
-                    };
-                    return updated;
-                });
-                await new Promise(r => setTimeout(r, 18));
-            }
-        }
-    };
-
     const handleSendMessage = async (customPrompt) => {
         const textToSend = customPrompt || inputPrompt;
         if (!textToSend.trim()) return;
 
-        if (provider !== AI_PROVIDERS.BUILTIN && !apiKey.trim()) {
+        if (!apiKey.trim()) {
             setIsSettingsOpen(true);
-            setErrorMsg('Please enter your OpenRouter API key, or switch to the Built-in OmniCorp Engine.');
+            setErrorMsg('Please enter your OpenRouter API key (sk-or-v1-...) in Settings below to begin chatting.');
             return;
         }
 
@@ -167,22 +86,6 @@ export default function NemotronAssistant({
 
         abortControllerRef.current = new AbortController();
 
-        // 1. BUILT-IN SIMULATED MODE (100% Reliable on GitHub Pages)
-        if (provider === AI_PROVIDERS.BUILTIN) {
-            try {
-                await new Promise(r => setTimeout(r, 200));
-                const simulatedText = generateOmniCorpSimulatedResponse(textToSend, { characters, decisionLines });
-                await streamSimulatedResponse(simulatedText);
-            } catch (simErr) {
-                setErrorMsg('Simulation error: ' + simErr.message);
-            } finally {
-                setIsLoading(false);
-                abortControllerRef.current = null;
-            }
-            return;
-        }
-
-        // 2. OPENROUTER PRIMARY
         try {
             const contextSummary = `Currently configured: ${characters.length} characters in roster, ${decisionLines.length} decision lines in graph.`;
 
@@ -192,60 +95,28 @@ export default function NemotronAssistant({
             ];
 
             const payloadBody = JSON.stringify({
-                model: selectedModel,
+                model: ACTIVE_MODEL.id,
                 messages: apiMessages,
                 temperature: 0.6,
                 max_tokens: 2048,
                 stream: true
             });
 
-            const endpoints = ['https://openrouter.ai/api/v1/chat/completions'];
-            const headers = {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey.trim()}`,
-                'HTTP-Referer': window.location.origin,
-                'X-Title': 'OmniCorp Intranet Studio'
-            };
+            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey.trim()}`,
+                    'HTTP-Referer': window.location.origin,
+                    'X-Title': 'OmniCorp Intranet Studio'
+                },
+                body: payloadBody,
+                signal: abortControllerRef.current.signal
+            });
 
-            let response = null;
-            let lastFetchError = null;
-
-            for (const endpoint of endpoints) {
-                try {
-                    const res = await fetch(endpoint, {
-                        method: 'POST',
-                        headers,
-                        body: payloadBody,
-                        signal: abortControllerRef.current.signal
-                    });
-                    if (res.ok) {
-                        response = res;
-                        break;
-                    } else {
-                        const errData = await res.json().catch(() => ({}));
-                        throw new Error(errData.message || errData.error?.message || `API HTTP ${res.status}`);
-                    }
-                } catch (err) {
-                    if (err.name === 'AbortError') {
-                        throw new Error('Request was cancelled.');
-                    }
-                    lastFetchError = err;
-                }
-            }
-
-            if (!response) {
-                const modelObj = POPULAR_MODELS.find(m => m.id === selectedModel);
-                const errorHelp = lastFetchError?.message || 'Network connection to OpenRouter could not be established. Please verify your OpenRouter API key in Settings (⚙️).';
-
-                setErrorMsg(`⚠️ Could not connect to ${modelObj?.name || 'model'}: ${errorHelp}`);
-                setMessages(prev => [
-                    ...prev,
-                    {
-                        role: 'assistant',
-                        content: `⚠️ **Connection Error**: Could not connect to **${modelObj?.name || selectedModel}**.\n\n${errorHelp}\n\n*💡 Tip: Switch to "OmniCorp Neural Architect" in the dropdown for 100% offline, zero-configuration lore generation.*`
-                    }
-                ]);
-                return;
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.message || errData.error?.message || `HTTP ${response.status}`);
             }
 
             setMessages(prev => [...prev, { role: 'assistant', content: '', reasoning: '', isStreaming: true }]);
@@ -276,12 +147,8 @@ export default function NemotronAssistant({
                                 const contentChunk = delta?.content || '';
                                 const reasoningChunk = delta?.reasoning_content || '';
 
-                                if (contentChunk) {
-                                    responseText += contentChunk;
-                                }
-                                if (reasoningChunk) {
-                                    reasoningText += reasoningChunk;
-                                }
+                                if (contentChunk) responseText += contentChunk;
+                                if (reasoningChunk) reasoningText += reasoningChunk;
 
                                 const cleanContent = responseText
                                     .replace(/<\|close\|>message/g, '')
@@ -334,13 +201,13 @@ export default function NemotronAssistant({
             });
         } catch (err) {
             if (err.name !== 'AbortError' && err.message !== 'Request was cancelled.') {
-                console.warn('API error:', err);
-                setErrorMsg(`⚠️ Model error: ${err.message}`);
+                console.warn('OpenRouter API error:', err);
+                setErrorMsg(`⚠️ OpenRouter error: ${err.message}`);
                 setMessages(prev => [
                     ...prev,
                     {
                         role: 'assistant',
-                        content: `⚠️ **Model Error**: ${err.message}`
+                        content: `⚠️ **OpenRouter Error**: ${err.message}. Please verify your API key in Settings (⚙️).`
                     }
                 ]);
             }
@@ -363,17 +230,6 @@ export default function NemotronAssistant({
         ]);
     };
 
-    const currentModelObj = POPULAR_MODELS.find(m => m.id === selectedModel) || POPULAR_MODELS[0];
-
-    const getProviderBadge = () => {
-        if (provider === AI_PROVIDERS.OPENROUTER) {
-            return { label: 'OPENROUTER', color: 'bg-sky-100 text-sky-800 border-sky-300 font-bold' };
-        }
-        return { label: 'OFFLINE ENGINE', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' };
-    };
-
-    const badgeInfo = getProviderBadge();
-
     return (
         <aside className="w-[450px] xl:w-[490px] shrink-0 border-l border-[#c9b6ff] bg-white flex flex-col h-full overflow-hidden text-[#3b2a5a] shadow-[-6px_0_24px_rgba(59,42,90,0.06)] animate-in slide-in-from-right duration-300 z-30">
             {/* Aside Header */}
@@ -385,16 +241,12 @@ export default function NemotronAssistant({
                     <div>
                         <div className="flex items-center gap-2">
                             <h3 className="font-bold text-sm text-[#3b2a5a] tracking-tight">AI Co-Writer</h3>
-                            <button
-                                onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                                className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border shadow-xs transition-colors cursor-pointer ${badgeInfo.color}`}
-                                title="Click to open Engine & Credentials Settings"
-                            >
-                                {badgeInfo.label}
-                            </button>
+                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border shadow-xs bg-sky-100 text-sky-800 border-sky-300">
+                                OPENROUTER
+                            </span>
                         </div>
                         <p className="text-[11px] text-[#3b2a5a]/70 font-medium truncate max-w-[210px]">
-                            {currentModelObj.name}
+                            {ACTIVE_MODEL.name}
                         </p>
                     </div>
                 </div>
@@ -407,7 +259,7 @@ export default function NemotronAssistant({
                                 ? 'bg-[#3b2a5a] text-[#ffd6e8] border-[#ff9ec7]' 
                                 : 'hover:bg-[#ffd6e8]/50 text-[#3b2a5a] border-transparent'
                         }`}
-                        title="Configure API Keys & Provider Settings"
+                        title="Configure OpenRouter API Key"
                     >
                         <SlidersHorizontal size={16} />
                     </button>
@@ -421,46 +273,26 @@ export default function NemotronAssistant({
                 </div>
             </div>
 
-            {/* Always-Visible Model Selector Bar */}
-            <div className="px-4 py-2.5 bg-[#f3e8ff] border-b border-[#c9b6ff] flex items-center justify-between gap-2.5 shrink-0 shadow-xs">
-                <div className="flex items-center gap-1.5 text-[#3b2a5a] font-mono text-[11px] font-bold shrink-0">
+            {/* Model Info Bar */}
+            <div className="px-4 py-2.5 bg-[#f3e8ff] border-b border-[#c9b6ff] flex items-center justify-between gap-2 shrink-0 shadow-xs">
+                <div className="flex items-center gap-1.5 text-[#3b2a5a] font-mono text-[11px] font-bold">
                     <Sparkles size={13} className="text-[#3b2a5a]" />
                     <span>MODEL:</span>
                 </div>
-                <div className="relative flex-1">
-                    <select
-                        value={selectedModel}
-                        onChange={(e) => handleModelChange(e.target.value)}
-                        className="w-full bg-white hover:bg-slate-50 border border-[#c9b6ff] rounded-xl px-3 py-1.5 text-[#3b2a5a] text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#ff9ec7] cursor-pointer appearance-none pr-7 shadow-xs"
-                    >
-                        {POPULAR_MODELS.map(m => (
-                            <option key={m.id} value={m.id}>
-                                {m.name}
-                            </option>
-                        ))}
-                    </select>
-                    <ChevronDown size={14} className="absolute right-2.5 top-2.5 text-[#3b2a5a]/60 pointer-events-none" />
+                <div className="flex items-center gap-1.5 bg-white border border-[#c9b6ff] rounded-xl px-3 py-1 text-[#3b2a5a] text-xs font-bold shadow-xs">
+                    <Zap size={12} className="text-[#ff9ec7]" />
+                    <span>{ACTIVE_MODEL.name}</span>
                 </div>
             </div>
 
             {/* Settings Overlay Drawer */}
             {isSettingsOpen && (
                 <AssistantSettingsDrawer
-                    provider={provider}
-                    onProviderChange={handleProviderChange}
                     apiKey={apiKey}
                     setApiKey={setApiKey}
                     savedBadge={savedBadge}
                     onSaveSettings={handleSaveSettings}
                 />
-            )}
-
-            {/* Info Banner */}
-            {infoMsg && (
-                <div className="p-2.5 bg-amber-50 border-b border-amber-200 text-amber-900 text-xs flex items-start gap-2">
-                    <Sparkles size={14} className="shrink-0 mt-0.5 text-amber-600" />
-                    <div className="flex-1 font-medium">{infoMsg}</div>
-                </div>
             )}
 
             {/* Error Banner */}
@@ -477,7 +309,7 @@ export default function NemotronAssistant({
                     <AssistantChatBubble
                         key={idx}
                         message={m}
-                        modelTag={currentModelObj.tag}
+                        modelTag={ACTIVE_MODEL.tag}
                         onImportCharacter={handleImportCharacter}
                         onOpenAddModal={onOpenAddModal}
                     />
@@ -488,7 +320,7 @@ export default function NemotronAssistant({
                         <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 text-[#3b2a5a] text-xs font-semibold">
                                 <RefreshCw size={14} className="animate-spin text-[#3b2a5a] shrink-0" />
-                                <span>Formulating via {currentModelObj.tag}...</span>
+                                <span>Nemotron 3 Ultra is streaming response...</span>
                             </div>
                             <button
                                 type="button"
@@ -575,7 +407,7 @@ export default function NemotronAssistant({
                         type="text"
                         value={inputPrompt}
                         onChange={(e) => setInputPrompt(e.target.value)}
-                        placeholder={`Ask ${currentModelObj.tag} to write clues, characters, lore...`}
+                        placeholder={`Ask ${ACTIVE_MODEL.tag} to write clues, characters, lore...`}
                         disabled={isLoading}
                         className="flex-1 bg-[#fbf7ff] border border-[#c9b6ff] rounded-xl px-3.5 py-2 text-xs text-[#3b2a5a] placeholder-[#3b2a5a]/45 focus:outline-none focus:ring-2 focus:ring-[#ff9ec7] font-medium shadow-xs"
                     />

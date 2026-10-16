@@ -96,50 +96,8 @@ Format your response STRICTLY as a JSON array of objects with the following sche
 Output ONLY valid JSON. No conversational preamble.`;
 
         if (!openRouterKey || openRouterKey.trim() === '') {
-            // Local high-fidelity simulation
-            setTimeout(() => {
-                const simulatedIssues = [
-                    {
-                        id: 'ai_sim_1',
-                        severity: 'WARNING',
-                        title: 'Loop Memory Retention Paradox: David Bowman vs AUDIT-04',
-                        description: 'David Bowman notes "Memory scrub isn\'t taking" in log entry 114, yet AUDIT-04 is supposed to be the only active anomaly with the audit tool. Why has Bowman retained consciousness across 14 loop iterations without being deprovisioned by HR?',
-                        recommendation: 'Clarify that Bowman injected an unauthorized BIOS patch into SysTerminal NODE-666 that shields his terminal buffer from overnight wipes.',
-                        targetCharId: 'char_bowman',
-                        suggestedFix: {
-                            field: 'loreNotes',
-                            proposal: 'Lead SysAdmin David Bowman secretly injected an unauthorized BIOS buffer into NODE-666 that survives nightly memory wipes. He watches AUDIT-04 restart every 72 hours, quietly feeding terminal hints while staying under HR Director Patricia Vance\'s radar.'
-                        }
-                    },
-                    {
-                        id: 'ai_sim_2',
-                        severity: 'SUGGESTION',
-                        title: 'Unexplained Slurry Transit: Courier Authorization',
-                        description: 'Intern #442 delivers biological organ drums (PO-4412) to Sub-level 3, but only possesses L1 clearance. Sector 7 R&D requires L2 clearance. Who escorted the courier down the emergency freight elevator?',
-                        recommendation: 'Mention that Bill Lumbergh provided a forged maintenance bypass badge to avoid putting his own name on the Sector 7 biometric transit log.',
-                        targetCharId: 'char_intern',
-                        suggestedFix: {
-                            field: 'loreNotes',
-                            proposal: 'Overworked intern courier. Lumbergh handed them a forged "Janitorial Emergency Bypass" keycard to deliver the leaking biological container to Sub-level 3 without triggering security checkpoints.'
-                        }
-                    },
-                    {
-                        id: 'ai_sim_3',
-                        severity: 'WARNING',
-                        title: 'Missing Countermeasure: HR Vance Knowledge of Sarah Kone',
-                        description: 'Sarah Kone openly emails Procurement about $40,000 for Cryo-Preservation, but HR Director Patricia Vance has not placed Sarah under surveillance or marked her for deprovisioning.',
-                        recommendation: 'Add a note to Vance\'s dossier showing Sarah\'s termination ticket is queued but delayed by the 72-hour reset cycle.',
-                        targetCharId: 'char_sarah',
-                        suggestedFix: {
-                            field: 'loreNotes',
-                            proposal: 'Believes in the audit system. Unbeknownst to Sarah, Patricia Vance has already prepared her "Permanent Voluntary Deprovisioning" file, scheduled to execute at T-minus 12 hours before the loop restarts.'
-                        }
-                    }
-                ];
-                setAiScanResults(simulatedIssues);
-                setIsAiScanning(false);
-                showToastMsg('AI Narrative Lore Scan complete! 3 issues discovered.');
-            }, 1200);
+            setAiScanError('OpenRouter API key required to run AI Deep Lore Scan. Please configure your key in the AI Co-Writer settings (⚙️).');
+            setIsAiScanning(false);
             return;
         }
 
@@ -164,7 +122,8 @@ Output ONLY valid JSON. No conversational preamble.`;
             });
 
             if (!response.ok) {
-                throw new Error(`OpenRouter returned HTTP ${response.status}`);
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.message || errData.error?.message || `HTTP ${response.status}`);
             }
 
             const data = await response.json();
@@ -179,21 +138,7 @@ Output ONLY valid JSON. No conversational preamble.`;
             }
         } catch (err) {
             console.error('AI Scan Error:', err);
-            setAiScanError(`AI Scan Notice: ${err.message}. Switched to local continuity auditor.`);
-            setAiScanResults([
-                {
-                    id: 'ai_fallback_1',
-                    severity: 'WARNING',
-                    title: 'Loop Memory Retention: SysAdmin Bowman Buffer',
-                    description: 'David Bowman notes memory scrub isn\'t taking in log entry 114, but why hasn\'t Patricia Vance noticed his persistent terminal memory usage?',
-                    recommendation: 'Add lore specifying Bowman masks his memory cache under background diagnostic routine #4492.',
-                    targetCharId: 'char_bowman',
-                    suggestedFix: {
-                        field: 'loreNotes',
-                        proposal: 'Bowman hides his terminal persistence routine under diagnostic thread #4492. Every loop cycle, he wakes up before the rest of HQ.'
-                    }
-                }
-            ]);
+            setAiScanError(`AI Scan Error: ${err.message}. Please check your OpenRouter API key.`);
         } finally {
             setIsAiScanning(false);
         }

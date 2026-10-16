@@ -1,22 +1,8 @@
-export const AI_PROVIDERS = {
-    OPENROUTER: 'openrouter',
-    BUILTIN: 'builtin'
+export const ACTIVE_MODEL = {
+    id: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+    name: 'NVIDIA Nemotron 3 Ultra Free (OpenRouter)',
+    tag: 'Nemotron Ultra'
 };
-
-export const POPULAR_MODELS = [
-    { 
-        id: 'nvidia/nemotron-3-ultra-550b-a55b:free', 
-        name: 'NVIDIA Nemotron 3 Ultra Free (OpenRouter)', 
-        tag: 'Nemotron Ultra',
-        provider: AI_PROVIDERS.OPENROUTER 
-    },
-    { 
-        id: 'builtin/omnicorp-neural', 
-        name: 'OmniCorp Neural Architect (Offline Simulation)', 
-        tag: 'OmniCorp Neural',
-        provider: AI_PROVIDERS.BUILTIN 
-    }
-];
 
 export const OMNICORP_SYSTEM_PROMPT = `You are a helpful, conversational, and versatile AI assistant. 
 Communicate naturally, warmly, and helpfully just like a general AI chat interface. 
