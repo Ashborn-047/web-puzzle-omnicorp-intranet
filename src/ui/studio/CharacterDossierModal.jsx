@@ -272,6 +272,11 @@ COLLABORATIVE CO-WRITING INSTRUCTIONS:
                             try {
                                 const jsonStr = trimmed.replace(/^data:\s*/, '');
                                 const parsed = JSON.parse(jsonStr);
+
+                                if (parsed.error) {
+                                    throw new Error(parsed.error.message || `API error ${parsed.error.code}`);
+                                }
+
                                 const delta = parsed.choices?.[0]?.delta;
                                 if (delta?.content) {
                                     accContent += delta.content;

@@ -111,7 +111,7 @@ export default function NemotronAssistant({
         setTimeout(() => setSavedBadge(false), 2000);
     };
 
-    const handleSendMessage = async (customPrompt, overrideModelId) => {
+    const handleSendMessage = async (customPrompt, overrideModelId, retryCount = 0) => {
         const textToSend = customPrompt || inputPrompt;
         if (!textToSend.trim()) return;
 
@@ -121,9 +121,12 @@ export default function NemotronAssistant({
             return;
         }
 
-        const newMessages = [...messages, { role: 'user', content: textToSend }];
-        setMessages(newMessages);
-        setInputPrompt('');
+        if (retryCount === 0) {
+            const newMessages = [...messages, { role: 'user', content: textToSend }];
+            setMessages(newMessages);
+            setInputPrompt('');
+        }
+
         setIsLoading(true);
         setStreamTimer(0);
         setErrorMsg('');
@@ -138,9 +141,15 @@ export default function NemotronAssistant({
         try {
             const contextSummary = `Currently configured: ${characters.length} characters in roster, ${decisionLines.length} decision lines in graph.`;
 
+            // Prepare messages for API (exclude any prior streaming empty placeholders)
+            const cleanedHistory = (retryCount === 0 
+                ? [...messages, { role: 'user', content: textToSend }]
+                : messages
+            ).filter(m => m.content && !m.content.startsWith('⚠️'));
+
             const apiMessages = [
                 { role: 'system', content: `${OMNICORP_SYSTEM_PROMPT}\n\n[Active Project Context: ${contextSummary}]` },
-                ...newMessages.slice(-6).map(m => ({ role: m.role, content: m.content }))
+                ...cleanedHistory.slice(-6).map(m => ({ role: m.role, content: m.content }))
             ];
 
             const modelToUse = overrideModelId || selectedModelId;
@@ -170,10 +179,62 @@ export default function NemotronAssistant({
                 throw new Error(errData.message || errData.error?.message || `HTTP ${response.status}`);
             }
 
-            setMessages(prev => [...prev, { role: 'assistant', content: '', reasoning: '', isStreaming: true }]);
+            setMessages(prev => {
+                const updated = [...prev];
+                if (retryCount > 0 && updated[updated.length - 1]?.isStreaming) {
+                    return updated;
+                }
+                return [...prev, { role: 'assistant', content: '', reasoning: '', isStreaming: true }];
+            });
 
             let responseText = '';
             let reasoningText = '';
+
+            const processSseLine = (line) => {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith(':')) return;
+
+                if (trimmed.startsWith('data:') && !trimmed.includes('[DONE]')) {
+                    try {
+                        const jsonStr = trimmed.replace(/^data:\s*/, '');
+                        const parsed = JSON.parse(jsonStr);
+
+                        // Catch mid-stream errors emitted by OpenRouter/Nvidia
+                        if (parsed.error) {
+                            throw new Error(parsed.error.message || `Worker error ${parsed.error.code}`);
+                        }
+
+                        const delta = parsed.choices?.[0]?.delta;
+                        const contentChunk = delta?.content || '';
+                        const reasoningChunk = delta?.reasoning || delta?.reasoning_content || '';
+
+                        if (contentChunk) responseText += contentChunk;
+                        if (reasoningChunk) reasoningText += reasoningChunk;
+
+                        const cleanContent = responseText
+                            .replace(/<\|close\|>message/g, '')
+                            .replace(/<think>[\s\S]*?<\/think>/g, '');
+                        const cleanReasoning = reasoningText
+                            .replace(/<\|close\|>message/g, '')
+                            .replace(/<think>[\s\S]*?<\/think>/g, '');
+
+                        setMessages(prev => {
+                            const updated = [...prev];
+                            updated[updated.length - 1] = {
+                                role: 'assistant',
+                                content: cleanContent,
+                                reasoning: cleanReasoning,
+                                isStreaming: true
+                            };
+                            return updated;
+                        });
+                    } catch (parseErr) {
+                        if (parseErr.message && (parseErr.message.includes('Worker') || parseErr.message.includes('ResourceExhausted'))) {
+                            throw parseErr;
+                        }
+                    }
+                }
+            };
 
             if (response.body && response.body.getReader) {
                 const reader = response.body.getReader();
@@ -189,48 +250,19 @@ export default function NemotronAssistant({
                     streamBuffer = lines.pop() || '';
 
                     for (const line of lines) {
-                        const trimmed = line.trim();
-                        // Ignore OpenRouter keep-alive SSE comments (: OPENROUTER PROCESSING)
-                        if (trimmed.startsWith(':')) {
-                            continue;
-                        }
-
-                        if (trimmed.startsWith('data:') && !trimmed.includes('[DONE]')) {
-                            try {
-                                const jsonStr = trimmed.replace(/^data:\s*/, '');
-                                const parsed = JSON.parse(jsonStr);
-                                const delta = parsed.choices?.[0]?.delta;
-                                const contentChunk = delta?.content || '';
-                                const reasoningChunk = delta?.reasoning || delta?.reasoning_content || '';
-
-                                if (contentChunk) responseText += contentChunk;
-                                if (reasoningChunk) reasoningText += reasoningChunk;
-
-                                const cleanContent = responseText
-                                    .replace(/<\|close\|>message/g, '')
-                                    .replace(/<think>[\s\S]*?<\/think>/g, '');
-                                const cleanReasoning = reasoningText
-                                    .replace(/<\|close\|>message/g, '')
-                                    .replace(/<think>[\s\S]*?<\/think>/g, '');
-
-                                setMessages(prev => {
-                                    const updated = [...prev];
-                                    updated[updated.length - 1] = {
-                                        role: 'assistant',
-                                        content: cleanContent,
-                                        reasoning: cleanReasoning,
-                                        isStreaming: true
-                                    };
-                                    return updated;
-                                });
-                            } catch {
-                                // Ignore unparseable SSE line fragments
-                            }
-                        }
+                        processSseLine(line);
                     }
+                }
+
+                // Process any leftover trailing line in stream buffer
+                if (streamBuffer.trim()) {
+                    processSseLine(streamBuffer.trim());
                 }
             } else {
                 const data = await response.json();
+                if (data.error) {
+                    throw new Error(data.error.message || 'Model API error');
+                }
                 const choiceMsg = data.choices?.[0]?.message;
                 responseText = choiceMsg?.content || '';
                 reasoningText = choiceMsg?.reasoning || choiceMsg?.reasoning_content || '';
@@ -249,7 +281,7 @@ export default function NemotronAssistant({
                 const updated = [...prev];
                 updated[updated.length - 1] = {
                     role: 'assistant',
-                    content: finalContent || finalReasoning || 'No response returned from model.',
+                    content: finalContent || finalReasoning || 'No response returned from model. Please retry.',
                     reasoning: finalReasoning,
                     isStreaming: false
                 };
@@ -257,15 +289,40 @@ export default function NemotronAssistant({
             });
         } catch (err) {
             if (err.name !== 'AbortError' && err.message !== 'Request was cancelled.') {
+                // Auto-retry once on transient Nvidia worker congestion (ResourceExhausted or 502/429)
+                const isTransientWorkerLimit = 
+                    err.message.includes('ResourceExhausted') || 
+                    err.message.includes('502') || 
+                    err.message.includes('Worker local total request limit') ||
+                    err.message.includes('429');
+
+                if (isTransientWorkerLimit && retryCount < 2) {
+                    console.log(`OpenRouter Nvidia worker busy, auto-retrying in 1.2s (attempt ${retryCount + 1})...`);
+                    setErrorMsg('Nvidia worker momentarily busy, auto-retrying...');
+                    await new Promise(r => setTimeout(r, 1200));
+                    return handleSendMessage(customPrompt, overrideModelId, retryCount + 1);
+                }
+
                 console.warn('OpenRouter API error:', err);
                 setErrorMsg(`⚠️ OpenRouter error: ${err.message}`);
-                setMessages(prev => [
-                    ...prev,
-                    {
-                        role: 'assistant',
-                        content: `⚠️ **OpenRouter Error**: ${err.message}. Please verify your API key in Settings (⚙️).`
+                setMessages(prev => {
+                    const updated = [...prev];
+                    if (updated.length > 0 && updated[updated.length - 1].isStreaming) {
+                        updated[updated.length - 1] = {
+                            role: 'assistant',
+                            content: `⚠️ **OpenRouter Error**: ${err.message}. Please retry or pick another model above.`,
+                            isStreaming: false
+                        };
+                        return updated;
                     }
-                ]);
+                    return [
+                        ...prev,
+                        {
+                            role: 'assistant',
+                            content: `⚠️ **OpenRouter Error**: ${err.message}. Please retry or pick another model above.`
+                        }
+                    ];
+                });
             }
         } finally {
             setIsLoading(false);
