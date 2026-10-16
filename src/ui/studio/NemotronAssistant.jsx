@@ -22,13 +22,10 @@ export default function NemotronAssistant({
     characters = [],
     decisionLines = []
 }) {
-    const primaryEnvKey = import.meta.env.VITE_NVIDIA_API_KEY || '';
-    const altEnvKey = import.meta.env.VITE_NVIDIA_API_KEY_ALT || '';
     const openrouterEnvKey = import.meta.env.VITE_OPENROUTER_API_KEY || '';
 
     const [provider, setProvider] = useState(AI_PROVIDERS.OPENROUTER);
     const [apiKey, setApiKey] = useState('');
-    const [customProxy, setCustomProxy] = useState('');
     const [selectedModel, setSelectedModel] = useState('nvidia/nemotron-3-ultra-550b-a55b:free');
     const [messages, setMessages] = useState([
         {
@@ -50,24 +47,19 @@ export default function NemotronAssistant({
     useEffect(() => {
         const savedProvider = localStorage.getItem('omnicorp_ai_provider');
         const savedOpenRouterKey = localStorage.getItem('omnicorp_openrouter_api_key') || openrouterEnvKey;
-        const savedNvidiaKey = localStorage.getItem('omnicorp_nemotron_api_key') || primaryEnvKey || altEnvKey;
-        const savedProxy = localStorage.getItem('omnicorp_custom_proxy') || '';
         const savedModel = localStorage.getItem('omnicorp_nemotron_model');
 
-        // Always prioritize OpenRouter for browser CORS compatibility
         const activeProvider = savedProvider || AI_PROVIDERS.OPENROUTER;
         setProvider(activeProvider);
 
-        const activeKey = activeProvider === AI_PROVIDERS.OPENROUTER ? savedOpenRouterKey : (savedOpenRouterKey || savedNvidiaKey);
-        if (activeKey) setApiKey(activeKey);
-        if (savedProxy) setCustomProxy(savedProxy);
+        if (savedOpenRouterKey) setApiKey(savedOpenRouterKey);
 
-        if (savedModel && savedModel.includes(':free')) {
+        if (savedModel && POPULAR_MODELS.some(m => m.id === savedModel)) {
             setSelectedModel(savedModel);
         } else {
             setSelectedModel('nvidia/nemotron-3-ultra-550b-a55b:free');
         }
-    }, [isOpen, primaryEnvKey, altEnvKey, openrouterEnvKey]);
+    }, [isOpen, openrouterEnvKey]);
 
     useEffect(() => {
         if (isOpen) {
@@ -102,9 +94,7 @@ export default function NemotronAssistant({
         setProvider(newProvider);
         localStorage.setItem('omnicorp_ai_provider', newProvider);
 
-        const keyForProvider = newProvider === AI_PROVIDERS.OPENROUTER
-            ? (localStorage.getItem('omnicorp_openrouter_api_key') || openrouterEnvKey)
-            : (localStorage.getItem('omnicorp_nemotron_api_key') || primaryEnvKey || altEnvKey);
+        const keyForProvider = localStorage.getItem('omnicorp_openrouter_api_key') || openrouterEnvKey;
         setApiKey(keyForProvider || '');
 
         const firstMatching = POPULAR_MODELS.find(m => m.provider === newProvider);
@@ -125,12 +115,7 @@ export default function NemotronAssistant({
 
     const handleSaveSettings = () => {
         localStorage.setItem('omnicorp_ai_provider', provider);
-        if (provider === AI_PROVIDERS.OPENROUTER) {
-            localStorage.setItem('omnicorp_openrouter_api_key', apiKey.trim());
-        } else {
-            localStorage.setItem('omnicorp_nemotron_api_key', apiKey.trim());
-        }
-        localStorage.setItem('omnicorp_custom_proxy', customProxy.trim());
+        localStorage.setItem('omnicorp_openrouter_api_key', apiKey.trim());
         localStorage.setItem('omnicorp_nemotron_model', selectedModel);
         setIsSettingsOpen(false);
         setErrorMsg('');
@@ -170,7 +155,7 @@ export default function NemotronAssistant({
 
         if (provider !== AI_PROVIDERS.BUILTIN && !apiKey.trim()) {
             setIsSettingsOpen(true);
-            setErrorMsg(`Please enter your ${provider === AI_PROVIDERS.OPENROUTER ? 'OpenRouter' : 'NVIDIA'} API key, or switch to the Built-in OmniCorp Engine.`);
+            setErrorMsg('Please enter your OpenRouter API key, or switch to the Built-in OmniCorp Engine.');
             return;
         }
 
@@ -197,7 +182,7 @@ export default function NemotronAssistant({
             return;
         }
 
-        // 2. CLOUD PROVIDER (NVIDIA NIM or OpenRouter)
+        // 2. OPENROUTER PRIMARY
         try {
             const contextSummary = `Currently configured: ${characters.length} characters in roster, ${decisionLines.length} decision lines in graph.`;
 
@@ -214,35 +199,13 @@ export default function NemotronAssistant({
                 stream: true
             });
 
-            let endpoints = [];
-            let headers = {
+            const endpoints = ['https://openrouter.ai/api/v1/chat/completions'];
+            const headers = {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey.trim()}`
+                'Authorization': `Bearer ${apiKey.trim()}`,
+                'HTTP-Referer': window.location.origin,
+                'X-Title': 'OmniCorp Intranet Studio'
             };
-
-            if (provider === AI_PROVIDERS.OPENROUTER) {
-                endpoints = ['https://openrouter.ai/api/v1/chat/completions'];
-                headers['HTTP-Referer'] = window.location.origin;
-                headers['X-Title'] = 'OmniCorp Intranet Studio';
-            } else {
-                const baseUrl = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
-                if (import.meta.env.DEV) {
-                    endpoints = [
-                        `${baseUrl}/api/nvidia/v1/chat/completions`,
-                        '/api/nvidia/v1/chat/completions',
-                        'https://integrate.api.nvidia.com/v1/chat/completions'
-                    ];
-                } else if (customProxy.trim()) {
-                    const proxyBase = customProxy.trim().endsWith('?') ? customProxy.trim() : `${customProxy.trim()}?url=`;
-                    endpoints = [proxyBase + encodeURIComponent('https://integrate.api.nvidia.com/v1/chat/completions')];
-                } else {
-                    endpoints = [
-                        `${baseUrl}/api/nvidia/v1/chat/completions`,
-                        '/api/nvidia/v1/chat/completions',
-                        'https://integrate.api.nvidia.com/v1/chat/completions'
-                    ];
-                }
-            }
 
             let response = null;
             let lastFetchError = null;
@@ -271,22 +234,15 @@ export default function NemotronAssistant({
             }
 
             if (!response) {
-                const isCors = lastFetchError?.message?.includes('Failed to fetch') || lastFetchError?.name === 'TypeError';
                 const modelObj = POPULAR_MODELS.find(m => m.id === selectedModel);
-                let errorHelp = lastFetchError?.message || 'Failed to reach API server.';
-
-                if (provider === AI_PROVIDERS.NVIDIA && isCors) {
-                    errorHelp = 'Browser security (CORS) prevented a direct connection to NVIDIA NIM. Direct calls from static web pages are restricted by NVIDIA. To chat with a live LLM: 1) Run locally via `npm run dev` and open http://localhost:5173/web-puzzle-omnicorp-intranet/studio.html (uses the Vite server proxy), or 2) Switch model to an OpenRouter model above or the Built-in OmniCorp Engine.';
-                } else if (provider === AI_PROVIDERS.OPENROUTER && isCors) {
-                    errorHelp = 'Network connection to OpenRouter could not be established. Please verify your OpenRouter API key in Settings (⚙️), or check if a network ad-blocker is intercepting requests.';
-                }
+                const errorHelp = lastFetchError?.message || 'Network connection to OpenRouter could not be established. Please verify your OpenRouter API key in Settings (⚙️).';
 
                 setErrorMsg(`⚠️ Could not connect to ${modelObj?.name || 'model'}: ${errorHelp}`);
                 setMessages(prev => [
                     ...prev,
                     {
                         role: 'assistant',
-                        content: `⚠️ **Connection Error**: Could not connect to **${modelObj?.name || selectedModel}**.\n\n${errorHelp}\n\n*💡 Tip: Switch model to "OmniCorp Neural Architect" in the dropdown above for 100% offline, zero-configuration lore generation.*`
+                        content: `⚠️ **Connection Error**: Could not connect to **${modelObj?.name || selectedModel}**.\n\n${errorHelp}\n\n*💡 Tip: Switch to "OmniCorp Neural Architect" in the dropdown for 100% offline, zero-configuration lore generation.*`
                     }
                 ]);
                 return;
@@ -411,12 +367,9 @@ export default function NemotronAssistant({
 
     const getProviderBadge = () => {
         if (provider === AI_PROVIDERS.OPENROUTER) {
-            return { label: 'OPENROUTER (PRIMARY)', color: 'bg-sky-100 text-sky-800 border-sky-300 font-bold' };
+            return { label: 'OPENROUTER', color: 'bg-sky-100 text-sky-800 border-sky-300 font-bold' };
         }
-        if (provider === AI_PROVIDERS.BUILTIN) {
-            return { label: 'OFFLINE ENGINE', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' };
-        }
-        return { label: 'NVIDIA NIM (FALLBACK)', color: 'bg-[#ffd6e8] text-[#3b2a5a] border-[#ff9ec7]' };
+        return { label: 'OFFLINE ENGINE', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' };
     };
 
     const badgeInfo = getProviderBadge();
@@ -480,27 +433,11 @@ export default function NemotronAssistant({
                         onChange={(e) => handleModelChange(e.target.value)}
                         className="w-full bg-white hover:bg-slate-50 border border-[#c9b6ff] rounded-xl px-3 py-1.5 text-[#3b2a5a] text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#ff9ec7] cursor-pointer appearance-none pr-7 shadow-xs"
                     >
-                        <optgroup label="OpenRouter (Primary • Web CORS Ready)">
-                            {POPULAR_MODELS.filter(m => m.provider === AI_PROVIDERS.OPENROUTER).map(m => (
-                                <option key={m.id} value={m.id}>
-                                    {m.name}
-                                </option>
-                            ))}
-                        </optgroup>
-                        <optgroup label="OmniCorp Simulation (Offline Fallback • 100% Reliable)">
-                            {POPULAR_MODELS.filter(m => m.provider === AI_PROVIDERS.BUILTIN).map(m => (
-                                <option key={m.id} value={m.id}>
-                                    {m.name}
-                                </option>
-                            ))}
-                        </optgroup>
-                        <optgroup label="NVIDIA NIM (Fallback • Local Dev Server)">
-                            {POPULAR_MODELS.filter(m => m.provider === AI_PROVIDERS.NVIDIA).map(m => (
-                                <option key={m.id} value={m.id}>
-                                    {m.name}
-                                </option>
-                            ))}
-                        </optgroup>
+                        {POPULAR_MODELS.map(m => (
+                            <option key={m.id} value={m.id}>
+                                {m.name}
+                            </option>
+                        ))}
                     </select>
                     <ChevronDown size={14} className="absolute right-2.5 top-2.5 text-[#3b2a5a]/60 pointer-events-none" />
                 </div>
@@ -513,12 +450,8 @@ export default function NemotronAssistant({
                     onProviderChange={handleProviderChange}
                     apiKey={apiKey}
                     setApiKey={setApiKey}
-                    customProxy={customProxy}
-                    setCustomProxy={setCustomProxy}
                     savedBadge={savedBadge}
                     onSaveSettings={handleSaveSettings}
-                    primaryEnvKey={primaryEnvKey}
-                    altEnvKey={altEnvKey}
                 />
             )}
 
