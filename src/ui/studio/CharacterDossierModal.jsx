@@ -164,13 +164,13 @@ export default function CharacterDossierModal({
         abortRef.current = new AbortController();
 
         const savedOpenRouterKey = (localStorage.getItem('omnicorp_openrouter_api_key') || import.meta.env.VITE_OPENROUTER_API_KEY || '').trim();
-        const selectedModel = localStorage.getItem('omnicorp_nemotron_model') || 'nvidia/nemotron-3-ultra-550b-a55b:free';
+        const selectedModel = localStorage.getItem('omnicorp_nemotron_model') || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free';
         const apiKey = savedOpenRouterKey;
 
         // If no OpenRouter key is set, guide the user directly
         if (!apiKey) {
             setShowKeyConfig(true);
-            setAiError('OpenRouter API key required. Please enter your key in the top drawer to connect Nemotron 3 Ultra.');
+            setAiError('OpenRouter API key required. Please enter your key in the top drawer to connect AI Co-Writer.');
             setIsAiGenerating(false);
             abortRef.current = null;
             return;
@@ -267,6 +267,7 @@ COLLABORATIVE CO-WRITING INSTRUCTIONS:
 
                     for (const line of lines) {
                         const trimmed = line.trim();
+                        if (trimmed.startsWith(':')) continue;
                         if (trimmed.startsWith('data:') && !trimmed.includes('[DONE]')) {
                             try {
                                 const jsonStr = trimmed.replace(/^data:\s*/, '');
@@ -275,8 +276,8 @@ COLLABORATIVE CO-WRITING INSTRUCTIONS:
                                 if (delta?.content) {
                                     accContent += delta.content;
                                 }
-                                if (delta?.reasoning_content) {
-                                    accReasoning += delta.reasoning_content;
+                                if (delta?.reasoning || delta?.reasoning_content) {
+                                    accReasoning += (delta.reasoning || delta.reasoning_content);
                                 }
 
                                 const cleanC = accContent.replace(/<think>[\s\S]*?<\/think>/g, '');

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
     Bot, Send, Sparkles, X, RefreshCw, AlertCircle, 
-    SlidersHorizontal, UserPlus, Zap
+    SlidersHorizontal, UserPlus, Zap, Clock
 } from 'lucide-react';
 import {
-    ACTIVE_MODEL,
+    AVAILABLE_MODELS,
+    DEFAULT_MODEL_ID,
     OMNICORP_SYSTEM_PROMPT,
     CHARACTER_PRESETS,
     QUICK_INSPIRATION_CHIPS
@@ -23,20 +24,34 @@ export default function NemotronAssistant({
     const openrouterEnvKey = import.meta.env.VITE_OPENROUTER_API_KEY || '';
 
     const [apiKey, setApiKey] = useState('');
+    const [selectedModelId, setSelectedModelId] = useState(() => {
+        const saved = localStorage.getItem('omnicorp_nemotron_model');
+        // Default to fast model if not set or if previously set to congested 550b ultra
+        if (!saved || saved === 'nvidia/nemotron-3-ultra-550b-a55b:free') {
+            localStorage.setItem('omnicorp_nemotron_model', DEFAULT_MODEL_ID);
+            return DEFAULT_MODEL_ID;
+        }
+        return saved;
+    });
+
+    const activeModel = AVAILABLE_MODELS.find(m => m.id === selectedModelId) || AVAILABLE_MODELS[0];
+
     const [messages, setMessages] = useState([
         {
             role: 'assistant',
-            content: 'Hello! I am Nemotron 3 Ultra, your AI co-writer. How can I help you today? You can ask me to draft characters, formulate puzzle clues, critique lore, or chat about anything.'
+            content: `Hello! I am ${activeModel.tag}, your AI co-writer. How can I help you today? You can ask me to draft characters, formulate puzzle clues, critique lore, or chat about anything.`
         }
     ]);
     const [inputPrompt, setInputPrompt] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [streamTimer, setStreamTimer] = useState(0);
     const [errorMsg, setErrorMsg] = useState('');
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [showCharPresets, setShowCharPresets] = useState(false);
     const [savedBadge, setSavedBadge] = useState(false);
     const messagesEndRef = useRef(null);
     const abortControllerRef = useRef(null);
+    const timerIntervalRef = useRef(null);
 
     // Initial load of OpenRouter key
     useEffect(() => {
@@ -50,25 +65,53 @@ export default function NemotronAssistant({
         }
     }, [messages, isOpen]);
 
+    useEffect(() => {
+        return () => {
+            if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+        };
+    }, []);
+
     if (!isOpen) return null;
+
+    const handleModelChange = (newModelId) => {
+        setSelectedModelId(newModelId);
+        localStorage.setItem('omnicorp_nemotron_model', newModelId);
+    };
 
     const handleCancelRequest = () => {
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
+        if (timerIntervalRef.current) {
+            clearInterval(timerIntervalRef.current);
+            timerIntervalRef.current = null;
+        }
         setIsLoading(false);
         setErrorMsg('Request cancelled by user.');
     };
 
+    const handleSwitchModelAndRetry = (fastModelId = DEFAULT_MODEL_ID) => {
+        handleCancelRequest();
+        handleModelChange(fastModelId);
+        // Find last user prompt
+        const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+        if (lastUserMsg) {
+            setTimeout(() => {
+                handleSendMessage(lastUserMsg.content, fastModelId);
+            }, 100);
+        }
+    };
+
     const handleSaveSettings = () => {
         localStorage.setItem('omnicorp_openrouter_api_key', apiKey.trim());
+        localStorage.setItem('omnicorp_nemotron_model', selectedModelId);
         setIsSettingsOpen(false);
         setErrorMsg('');
         setSavedBadge(true);
         setTimeout(() => setSavedBadge(false), 2000);
     };
 
-    const handleSendMessage = async (customPrompt) => {
+    const handleSendMessage = async (customPrompt, overrideModelId) => {
         const textToSend = customPrompt || inputPrompt;
         if (!textToSend.trim()) return;
 
@@ -82,7 +125,13 @@ export default function NemotronAssistant({
         setMessages(newMessages);
         setInputPrompt('');
         setIsLoading(true);
+        setStreamTimer(0);
         setErrorMsg('');
+
+        if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = setInterval(() => {
+            setStreamTimer(s => s + 1);
+        }, 1000);
 
         abortControllerRef.current = new AbortController();
 
@@ -94,8 +143,10 @@ export default function NemotronAssistant({
                 ...newMessages.slice(-6).map(m => ({ role: m.role, content: m.content }))
             ];
 
+            const modelToUse = overrideModelId || selectedModelId;
+
             const payloadBody = JSON.stringify({
-                model: ACTIVE_MODEL.id,
+                model: modelToUse,
                 messages: apiMessages,
                 temperature: 0.6,
                 max_tokens: 2048,
@@ -139,13 +190,18 @@ export default function NemotronAssistant({
 
                     for (const line of lines) {
                         const trimmed = line.trim();
+                        // Ignore OpenRouter keep-alive SSE comments (: OPENROUTER PROCESSING)
+                        if (trimmed.startsWith(':')) {
+                            continue;
+                        }
+
                         if (trimmed.startsWith('data:') && !trimmed.includes('[DONE]')) {
                             try {
                                 const jsonStr = trimmed.replace(/^data:\s*/, '');
                                 const parsed = JSON.parse(jsonStr);
                                 const delta = parsed.choices?.[0]?.delta;
                                 const contentChunk = delta?.content || '';
-                                const reasoningChunk = delta?.reasoning_content || '';
+                                const reasoningChunk = delta?.reasoning || delta?.reasoning_content || '';
 
                                 if (contentChunk) responseText += contentChunk;
                                 if (reasoningChunk) reasoningText += reasoningChunk;
@@ -177,7 +233,7 @@ export default function NemotronAssistant({
                 const data = await response.json();
                 const choiceMsg = data.choices?.[0]?.message;
                 responseText = choiceMsg?.content || '';
-                reasoningText = choiceMsg?.reasoning_content || '';
+                reasoningText = choiceMsg?.reasoning || choiceMsg?.reasoning_content || '';
             }
 
             const finalContent = responseText
@@ -213,9 +269,14 @@ export default function NemotronAssistant({
             }
         } finally {
             setIsLoading(false);
+            if (timerIntervalRef.current) {
+                clearInterval(timerIntervalRef.current);
+                timerIntervalRef.current = null;
+            }
             abortControllerRef.current = null;
         }
     };
+
 
     const handleImportCharacter = (charObj) => {
         if (!onAddCharacter) return;
@@ -246,7 +307,7 @@ export default function NemotronAssistant({
                             </span>
                         </div>
                         <p className="text-[11px] text-[#3b2a5a]/70 font-medium truncate max-w-[210px]">
-                            {ACTIVE_MODEL.name}
+                            {activeModel.name}
                         </p>
                     </div>
                 </div>
@@ -259,7 +320,7 @@ export default function NemotronAssistant({
                                 ? 'bg-[#3b2a5a] text-[#ffd6e8] border-[#ff9ec7]' 
                                 : 'hover:bg-[#ffd6e8]/50 text-[#3b2a5a] border-transparent'
                         }`}
-                        title="Configure OpenRouter API Key"
+                        title="Configure OpenRouter API Key & Models"
                     >
                         <SlidersHorizontal size={16} />
                     </button>
@@ -273,15 +334,26 @@ export default function NemotronAssistant({
                 </div>
             </div>
 
-            {/* Model Info Bar */}
+            {/* Model Info & Quick Switch Bar */}
             <div className="px-4 py-2.5 bg-[#f3e8ff] border-b border-[#c9b6ff] flex items-center justify-between gap-2 shrink-0 shadow-xs">
                 <div className="flex items-center gap-1.5 text-[#3b2a5a] font-mono text-[11px] font-bold">
                     <Sparkles size={13} className="text-[#3b2a5a]" />
                     <span>MODEL:</span>
                 </div>
-                <div className="flex items-center gap-1.5 bg-white border border-[#c9b6ff] rounded-xl px-3 py-1 text-[#3b2a5a] text-xs font-bold shadow-xs">
-                    <Zap size={12} className="text-[#ff9ec7]" />
-                    <span>{ACTIVE_MODEL.name}</span>
+                <div className="flex items-center gap-1.5">
+                    <select
+                        value={selectedModelId}
+                        onChange={(e) => handleModelChange(e.target.value)}
+                        disabled={isLoading}
+                        className="bg-white border border-[#c9b6ff] rounded-xl px-2.5 py-1 text-[#3b2a5a] text-xs font-bold shadow-xs focus:outline-none focus:ring-2 focus:ring-[#ff9ec7] cursor-pointer disabled:opacity-50"
+                        title="Quick-switch active model"
+                    >
+                        {AVAILABLE_MODELS.map((m) => (
+                            <option key={m.id} value={m.id}>
+                                {m.tag} ({m.badge})
+                            </option>
+                        ))}
+                    </select>
                 </div>
             </div>
 
@@ -290,6 +362,8 @@ export default function NemotronAssistant({
                 <AssistantSettingsDrawer
                     apiKey={apiKey}
                     setApiKey={setApiKey}
+                    selectedModelId={selectedModelId}
+                    setSelectedModelId={handleModelChange}
                     savedBadge={savedBadge}
                     onSaveSettings={handleSaveSettings}
                 />
@@ -309,7 +383,7 @@ export default function NemotronAssistant({
                     <AssistantChatBubble
                         key={idx}
                         message={m}
-                        modelTag={ACTIVE_MODEL.tag}
+                        modelTag={activeModel.tag}
                         onImportCharacter={handleImportCharacter}
                         onOpenAddModal={onOpenAddModal}
                     />
@@ -320,7 +394,7 @@ export default function NemotronAssistant({
                         <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 text-[#3b2a5a] text-xs font-semibold">
                                 <RefreshCw size={14} className="animate-spin text-[#3b2a5a] shrink-0" />
-                                <span>Nemotron 3 Ultra is streaming response...</span>
+                                <span>{activeModel.tag} is streaming response ({streamTimer}s)...</span>
                             </div>
                             <button
                                 type="button"
@@ -331,6 +405,27 @@ export default function NemotronAssistant({
                                 Cancel
                             </button>
                         </div>
+
+                        {/* OpenRouter Free Tier Congestion / Queue Helper */}
+                        {streamTimer >= 8 && !messages[messages.length - 1]?.content && !messages[messages.length - 1]?.reasoning && (
+                            <div className="p-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-[11px] space-y-1.5 animate-in fade-in">
+                                <div className="flex items-center justify-between">
+                                    <span className="font-semibold flex items-center gap-1.5">
+                                        <Clock size={12} className="text-amber-600" /> OpenRouter queue wait ({streamTimer}s)...
+                                    </span>
+                                </div>
+                                <div className="text-[10px] text-amber-800 flex items-center justify-between gap-2 pt-1 border-t border-amber-200">
+                                    <span>Takes too long? Switch to Fast Model:</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleSwitchModelAndRetry(DEFAULT_MODEL_ID)}
+                                        className="px-2 py-0.5 bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold rounded-lg cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
+                                    >
+                                        ⚡ Fast Nano (~2s)
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
                 <div ref={messagesEndRef} />
@@ -407,7 +502,7 @@ export default function NemotronAssistant({
                         type="text"
                         value={inputPrompt}
                         onChange={(e) => setInputPrompt(e.target.value)}
-                        placeholder={`Ask ${ACTIVE_MODEL.tag} to write clues, characters, lore...`}
+                        placeholder={`Ask ${activeModel.tag} to write clues, characters, lore...`}
                         disabled={isLoading}
                         className="flex-1 bg-[#fbf7ff] border border-[#c9b6ff] rounded-xl px-3.5 py-2 text-xs text-[#3b2a5a] placeholder-[#3b2a5a]/45 focus:outline-none focus:ring-2 focus:ring-[#ff9ec7] font-medium shadow-xs"
                     />

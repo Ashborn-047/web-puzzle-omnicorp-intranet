@@ -111,7 +111,7 @@ Output ONLY valid JSON. No conversational preamble.`;
                     'X-Title': 'OmniCorp Intranet Studio'
                 },
                 body: JSON.stringify({
-                    model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+                    model: localStorage.getItem('omnicorp_nemotron_model') || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
                     messages: [
                         { role: 'system', content: 'You are a meticulous narrative game designer auditing a cosmic horror puzzle ARG for plot holes.' },
                         { role: 'user', content: prompt }
