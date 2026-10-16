@@ -8,6 +8,30 @@ import {
 } from 'lucide-react';
 import { generateOmniCorpSimulatedResponse } from './omnicorpSimulator.js';
 
+// Initial greeting in collaborative chat (defined at module scope for pure rendering)
+const getInitialGreeting = (char) => {
+    if (!char) return { role: 'assistant', content: 'No personnel dossier selected.' };
+    const missingItems = [];
+    if (!char.clueHeld) missingItems.push('Forensic Puzzle Clue');
+    if (!char.messageSnippet) missingItems.push('Recorded Voice Memo / Chat Residue');
+    if (!char.loreNotes) missingItems.push('Backstory & Lore Notes');
+
+    const auditSummary = missingItems.length === 0
+        ? '✅ Core personnel fields populated. Ready for creative deepening and consistency checking.'
+        : `⚠️ **Needs Creative Input:** ${missingItems.join(', ')}`;
+
+    return {
+        role: 'assistant',
+        content: `Greetings, Architect! I have opened the personnel file for **${char.name}** (${char.title} • ${char.dept} • Clearance ${char.clearance}).\n\n📊 **Collaborative File Audit:**\n- 🔑 **Clue / Credential:** ${char.clueHeld ? `\`${char.clueHeld}\`` : '⚠️ *Unassigned*'}\n- 💬 **Recorded Voice:** ${char.messageSnippet ? `"${char.messageSnippet}"` : '⚠️ *None on file*'}\n- 📜 **Lore & Motive:** ${char.loreNotes ? char.loreNotes : '⚠️ *Needs expansion*'}\n- 🔍 **Status:** ${auditSummary}\n\n🤝 **Here are 3 key decisions we should make together:**\n1. **Secret Motive & Allegiance:** Is ${char.name} loyal to OmniCorp, secretly leaking documents to Sarah Kone, or an unwitting victim caught in Project Omega?\n2. **Forensic Trace:** What physical evidence or password code should players discover from them in the game?\n3. **Tone & Conflict:** Should they sound coldly bureaucratic, frantic and sleep-deprived, or terrified of HR Director Patricia Vance?\n\nWhat direction do you envision? You can answer any question above, give instructions, or pick a starting prompt below!`,
+        suggestions: [
+            `🔍 Audit ${char.name}'s details & prompt me with 2 story directions`,
+            `Let's draft their secret motive and fear of HR deprovisioning`,
+            `Design a forensic puzzle clue for ${char.name} to hold`,
+            `Draft a frantic intercepted audio memo from ${char.name}`
+        ]
+    };
+};
+
 export default function CharacterDossierModal({
     character,
     onClose,
@@ -17,12 +41,10 @@ export default function CharacterDossierModal({
     decisionLines = [],
     characters = []
 }) {
-    if (!character) return null;
-
     // Window size & View layout state: 'split' | 'dossier' | 'ai_cowriter'
     const [isFullscreen, setIsFullscreen] = useState(true);
     const [viewMode, setViewMode] = useState('split');
-    const [editableLore, setEditableLore] = useState(character.loreNotes || '');
+    const [editableLore, setEditableLore] = useState(character?.loreNotes || '');
     const [isSavingLore, setIsSavingLore] = useState(false);
     const [loreSavedSuccess, setLoreSavedSuccess] = useState(false);
 
@@ -48,44 +70,24 @@ export default function CharacterDossierModal({
         setTimeout(() => setAppliedSuccess(''), 2500);
     };
 
-    // Initial greeting in collaborative chat
-    const getInitialGreeting = (char) => {
-        const missingItems = [];
-        if (!char.clueHeld) missingItems.push('Forensic Puzzle Clue');
-        if (!char.messageSnippet) missingItems.push('Recorded Voice Memo / Chat Residue');
-        if (!char.loreNotes) missingItems.push('Backstory & Lore Notes');
-
-        const auditSummary = missingItems.length === 0
-            ? '✅ Core personnel fields populated. Ready for creative deepening and consistency checking.'
-            : `⚠️ **Needs Creative Input:** ${missingItems.join(', ')}`;
-
-        return {
-            role: 'assistant',
-            content: `Greetings, Architect! I have opened the personnel file for **${char.name}** (${char.title} • ${char.dept} • Clearance ${char.clearance}).\n\n📊 **Collaborative File Audit:**\n- 🔑 **Clue / Credential:** ${char.clueHeld ? `\`${char.clueHeld}\`` : '⚠️ *Unassigned*'}\n- 💬 **Recorded Voice:** ${char.messageSnippet ? `"${char.messageSnippet}"` : '⚠️ *None on file*'}\n- 📜 **Lore & Motive:** ${char.loreNotes ? char.loreNotes : '⚠️ *Needs expansion*'}\n- 🔍 **Status:** ${auditSummary}\n\n🤝 **Here are 3 key decisions we should make together:**\n1. **Secret Motive & Allegiance:** Is ${char.name} loyal to OmniCorp, secretly leaking documents to Sarah Kone, or an unwitting victim caught in Project Omega?\n2. **Forensic Trace:** What physical evidence or password code should players discover from them in the game?\n3. **Tone & Conflict:** Should they sound coldly bureaucratic, frantic and sleep-deprived, or terrified of HR Director Patricia Vance?\n\nWhat direction do you envision? You can answer any question above, give instructions, or pick a starting prompt below!`,
-            suggestions: [
-                `🔍 Audit ${char.name}'s details & prompt me with 2 story directions`,
-                `Let's draft their secret motive and fear of HR deprovisioning`,
-                `Design a forensic puzzle clue for ${char.name} to hold`,
-                `Draft a frantic intercepted audio memo from ${char.name}`
-            ]
-        };
-    };
-
     const [chatMessages, setChatMessages] = useState(() => [getInitialGreeting(character)]);
 
     // Reset when character changes
     useEffect(() => {
+        if (!character) return;
         setEditableLore(character.loreNotes || '');
         setChatMessages([getInitialGreeting(character)]);
         setAiError('');
         setAppliedSuccess('');
-    }, [character.id]);
+    }, [character]);
 
     useEffect(() => {
         if (viewMode === 'ai_cowriter' || viewMode === 'split') {
             messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
     }, [chatMessages, isAiGenerating, viewMode]);
+
+    if (!character) return null;
 
     // Character connections in graph
     const relatedLinks = decisionLines.filter(
@@ -473,7 +475,7 @@ COLLABORATIVE CO-WRITING INSTRUCTIONS:
                             type="button"
                             onClick={() => {
                                 setViewMode('split');
-                                handleSendChat(`Let's resolve this continuity flaw for ${character.name}: ${characterPlotHoles[0].title}. Propose an immediate resolution that connects smoothly with our OmniCorp ARG puzzle canon.`);
+                                handleSendMessage(`Let's resolve this continuity flaw for ${character.name}: ${characterPlotHoles[0].title}. Propose an immediate resolution that connects smoothly with our OmniCorp ARG puzzle canon.`);
                             }}
                             className="px-2.5 py-1 bg-[#3b2a5a] text-[#ffd6e8] hover:bg-[#2c1e44] rounded-xl text-[11px] font-bold flex items-center gap-1 border border-[#ff9ec7] transition-all cursor-pointer shadow-xs"
                         >
@@ -918,6 +920,15 @@ COLLABORATIVE CO-WRITING INSTRUCTIONS:
                     <div className="flex items-center gap-2 p-3 text-xs text-[#3b2a5a] font-bold bg-white/80 rounded-xl border border-[#c9b6ff]/60 animate-in fade-in">
                         <RefreshCw size={13} className="animate-spin text-[#ff9ec7]" />
                         <span>AI is formulating collaborative story options...</span>
+                    </div>
+                )}
+                {aiError && (
+                    <div className="flex items-center gap-2 p-2.5 text-xs text-rose-700 bg-rose-50 rounded-xl border border-rose-200">
+                        <AlertTriangle size={13} className="shrink-0" />
+                        <span className="flex-1">{aiError}</span>
+                        <button type="button" onClick={() => setAiError('')} className="p-0.5 hover:bg-rose-100 rounded text-rose-500 cursor-pointer">
+                            <X size={12} />
+                        </button>
                     </div>
                 )}
                 <div ref={messagesEndRef} />

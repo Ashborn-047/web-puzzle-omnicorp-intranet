@@ -350,20 +350,24 @@ export default function NemotronAssistant({
                 }
             }
 
-            // If Cloud API fails, do NOT substitute fake canned simulation text!
+            // If Cloud API fails, display clear and provider-accurate instructions
             if (!response) {
                 const isCors = lastFetchError?.message?.includes('Failed to fetch') || lastFetchError?.name === 'TypeError';
                 const modelObj = POPULAR_MODELS.find(m => m.id === selectedModel);
-                const errorHelp = isCors
-                    ? 'Browser security (CORS) prevented a direct connection to NVIDIA NIM. Direct calls from static web pages are restricted by NVIDIA. To chat with a live LLM: 1) Run locally via `npm run dev` and open http://localhost:5173/web-puzzle-omnicorp-intranet/studio.html (uses the Vite server proxy), or 2) Switch model to "Nemotron 120B Free (OpenRouter)" above which works natively in the browser.'
-                    : (lastFetchError?.message || 'Failed to reach API server.');
-                
+                let errorHelp = lastFetchError?.message || 'Failed to reach API server.';
+
+                if (provider === AI_PROVIDERS.NVIDIA && isCors) {
+                    errorHelp = 'Browser security (CORS) prevented a direct connection to NVIDIA NIM. Direct calls from static web pages are restricted by NVIDIA. To chat with a live LLM: 1) Run locally via `npm run dev` and open http://localhost:5173/web-puzzle-omnicorp-intranet/studio.html (uses the Vite server proxy), or 2) Switch model to an OpenRouter model above or the Built-in OmniCorp Engine.';
+                } else if (provider === AI_PROVIDERS.OPENROUTER && isCors) {
+                    errorHelp = 'Network connection to OpenRouter could not be established. Please verify your OpenRouter API key in Settings (⚙️), or check if a network ad-blocker is intercepting requests.';
+                }
+
                 setErrorMsg(`⚠️ Could not connect to ${modelObj?.name || 'model'}: ${errorHelp}`);
                 setMessages(prev => [
                     ...prev,
                     {
                         role: 'assistant',
-                        content: `⚠️ **Connection Error**: Could not connect to **${modelObj?.name || selectedModel}**.\n\n${errorHelp}`
+                        content: `⚠️ **Connection Error**: Could not connect to **${modelObj?.name || selectedModel}**.\n\n${errorHelp}\n\n*💡 Tip: Switch model to "OmniCorp Neural Architect" in the dropdown above for 100% offline, zero-configuration lore generation.*`
                     }
                 ]);
                 return;

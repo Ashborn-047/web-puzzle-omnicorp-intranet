@@ -5,7 +5,6 @@ import {
     Key, HelpCircle, Eye, GitCommit, FileText, ChevronRight, X,
     Check, CornerDownRight, Filter, AlertCircle, Bot, Zap, BookOpen
 } from 'lucide-react';
-import { generateOmniCorpSimulatedResponse } from './omnicorpSimulator.js';
 
 export default function PlotHoleAuditor({
     characters = [],
@@ -13,8 +12,7 @@ export default function PlotHoleAuditor({
     onSelectCharacter,
     onOpenEditForm,
     onOpenAddDecisionLine,
-    onUpdateCharacter,
-    onAddDecisionLine
+    onUpdateCharacter
 }) {
     const [filterSeverity, setFilterSeverity] = useState('ALL'); // 'ALL' | 'CRITICAL' | 'WARNING' | 'SUGGESTION' | 'AI'
     const [dismissedIssues, setDismissedIssues] = useState(new Set());
@@ -23,8 +21,6 @@ export default function PlotHoleAuditor({
     const [isAiScanning, setIsAiScanning] = useState(false);
     const [aiScanResults, setAiScanResults] = useState([]);
     const [aiScanError, setAiScanError] = useState('');
-    const [aiQuickFixingId, setAiQuickFixingId] = useState(null);
-    const [quickFixProposal, setQuickFixProposal] = useState(null); // { issueId, charId, field, value, explanation }
     const [actionSuccessMsg, setActionSuccessMsg] = useState('');
 
     // OpenRouter Key setup
@@ -669,6 +665,15 @@ Output ONLY valid JSON. No conversational preamble.`;
                 )}
             </div>
 
+            {aiScanError && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center justify-between">
+                    <span>{aiScanError}</span>
+                    <button type="button" onClick={() => setAiScanError('')} className="p-1 hover:bg-amber-100 rounded text-amber-700 cursor-pointer">
+                        <X size={13} />
+                    </button>
+                </div>
+            )}
+
             {/* AUDIT ISSUES LIST */}
             <div className="flex-1 overflow-y-auto pr-1 space-y-3 pb-8">
                 {activeIssues.length === 0 ? (
@@ -788,6 +793,19 @@ Output ONLY valid JSON. No conversational preamble.`;
                                             >
                                                 <ExternalLink size={13} />
                                                 <span>Open Dossier & Co-Writer</span>
+                                            </button>
+                                        )}
+
+                                        {/* Edit in form if available */}
+                                        {targetChar && onOpenEditForm && (
+                                            <button
+                                                type="button"
+                                                onClick={() => onOpenEditForm(targetChar)}
+                                                className="px-2.5 py-1.5 bg-[#f3e8ff] hover:bg-[#ffd6e8] text-[#3b2a5a] rounded-xl font-bold text-xs flex items-center gap-1 border border-[#c9b6ff] transition-all cursor-pointer shadow-xs"
+                                                title={`Edit ${targetChar.name} in standard form`}
+                                            >
+                                                <Edit3 size={13} />
+                                                <span>Edit</span>
                                             </button>
                                         )}
 

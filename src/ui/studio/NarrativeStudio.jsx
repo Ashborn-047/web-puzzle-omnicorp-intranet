@@ -286,6 +286,10 @@ const CLEARANCE_LIST = [
     'L-OMEGA'
 ];
 
+// Module-level ID and file generators (keeps component render pure)
+const createUniqueId = (prefix) => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+const getExportFilename = () => `omnicorp_narrative_${Date.now()}.json`;
+
 export default function NarrativeStudio({ isOpen = true, onClose, isStandalone = false }) {
     // Passcode gate state
     const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -325,19 +329,19 @@ export default function NarrativeStudio({ isOpen = true, onClose, isStandalone =
     // Selected / Editing Character
     const [editingChar, setEditingChar] = useState(null);
     const [isFormOpen, setIsFormOpen] = useState(false);
-    const [selectedDossierChar, setSelectedDossierChar] = useState(null);
-
-    // Auto-open dossier if URL contains ?dossier=... or ?char=...
-    useEffect(() => {
+    const [selectedDossierChar, setSelectedDossierChar] = useState(() => {
         const params = new URLSearchParams(window.location.search);
         const targetId = params.get('dossier') || params.get('char');
-        if (targetId && characters.length > 0) {
-            const found = characters.find(c => c.id === targetId || c.badgeId === targetId);
-            if (found) {
-                setSelectedDossierChar(found);
-            }
+        if (!targetId) return null;
+        const saved = localStorage.getItem('omnicorp_narrative_characters');
+        let list = DEFAULT_CHARACTERS;
+        if (saved) {
+            try { list = JSON.parse(saved); } catch { /* fallback */ }
+        } else if (initialSavedData?.characters) {
+            list = initialSavedData.characters;
         }
-    }, [characters]);
+        return list.find(c => c.id === targetId || c.badgeId === targetId) || null;
+    });
 
     const handleUpdateCharacter = (updatedChar) => {
         setCharacters(prev => prev.map(c => c.id === updatedChar.id ? updatedChar : c));
@@ -480,7 +484,7 @@ export default function NarrativeStudio({ isOpen = true, onClose, isStandalone =
             // Create
             const newChar = {
                 ...formData,
-                id: `char_${Date.now()}`
+                id: createUniqueId('char')
             };
             setCharacters(prev => [newChar, ...prev]);
             showToast(`Added character: ${formData.name}`);
@@ -506,7 +510,7 @@ export default function NarrativeStudio({ isOpen = true, onClose, isStandalone =
         }
 
         const newLink = {
-            id: `dl_${Date.now()}`,
+            id: createUniqueId('dl'),
             ...linkData
         };
 
@@ -575,7 +579,7 @@ export default function NarrativeStudio({ isOpen = true, onClose, isStandalone =
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ characters, decisionLines }, null, 2));
         const downloadAnchor = document.createElement('a');
         downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", `omnicorp_narrative_${Date.now()}.json`);
+        downloadAnchor.setAttribute("download", getExportFilename());
         document.body.appendChild(downloadAnchor);
         downloadAnchor.click();
         downloadAnchor.remove();
