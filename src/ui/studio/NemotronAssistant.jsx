@@ -410,13 +410,13 @@ export default function NemotronAssistant({
     const currentModelObj = POPULAR_MODELS.find(m => m.id === selectedModel) || POPULAR_MODELS[0];
 
     const getProviderBadge = () => {
+        if (provider === AI_PROVIDERS.OPENROUTER) {
+            return { label: 'OPENROUTER (PRIMARY)', color: 'bg-sky-100 text-sky-800 border-sky-300 font-bold' };
+        }
         if (provider === AI_PROVIDERS.BUILTIN) {
             return { label: 'OFFLINE ENGINE', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' };
         }
-        if (provider === AI_PROVIDERS.OPENROUTER) {
-            return { label: 'OPENROUTER', color: 'bg-sky-100 text-sky-800 border-sky-300' };
-        }
-        return { label: 'NVIDIA NIM', color: 'bg-[#ffd6e8] text-[#3b2a5a] border-[#ff9ec7]' };
+        return { label: 'NVIDIA NIM (FALLBACK)', color: 'bg-[#ffd6e8] text-[#3b2a5a] border-[#ff9ec7]' };
     };
 
     const badgeInfo = getProviderBadge();
@@ -480,22 +480,22 @@ export default function NemotronAssistant({
                         onChange={(e) => handleModelChange(e.target.value)}
                         className="w-full bg-white hover:bg-slate-50 border border-[#c9b6ff] rounded-xl px-3 py-1.5 text-[#3b2a5a] text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#ff9ec7] cursor-pointer appearance-none pr-7 shadow-xs"
                     >
-                        <optgroup label="OmniCorp Simulation (Offline & 100% Reliable)">
+                        <optgroup label="OpenRouter (Primary • Web CORS Ready)">
+                            {POPULAR_MODELS.filter(m => m.provider === AI_PROVIDERS.OPENROUTER).map(m => (
+                                <option key={m.id} value={m.id}>
+                                    {m.name}
+                                </option>
+                            ))}
+                        </optgroup>
+                        <optgroup label="OmniCorp Simulation (Offline Fallback • 100% Reliable)">
                             {POPULAR_MODELS.filter(m => m.provider === AI_PROVIDERS.BUILTIN).map(m => (
                                 <option key={m.id} value={m.id}>
                                     {m.name}
                                 </option>
                             ))}
                         </optgroup>
-                        <optgroup label="NVIDIA NIM (Fast Cloud Models)">
+                        <optgroup label="NVIDIA NIM (Fallback • Local Dev Server)">
                             {POPULAR_MODELS.filter(m => m.provider === AI_PROVIDERS.NVIDIA).map(m => (
-                                <option key={m.id} value={m.id}>
-                                    {m.name}
-                                </option>
-                            ))}
-                        </optgroup>
-                        <optgroup label="OpenRouter (Browser CORS Ready)">
-                            {POPULAR_MODELS.filter(m => m.provider === AI_PROVIDERS.OPENROUTER).map(m => (
                                 <option key={m.id} value={m.id}>
                                     {m.name}
                                 </option>

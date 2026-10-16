@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Zap, Globe, CheckCircle2 } from 'lucide-react';
+import { Globe, ShieldCheck, Zap, CheckCircle2 } from 'lucide-react';
 import { AI_PROVIDERS } from './assistantConstants';
 
 export default function AssistantSettingsDrawer({
@@ -18,13 +18,31 @@ export default function AssistantSettingsDrawer({
         <div className="p-4 bg-[#fbf7ff] border-b border-[#c9b6ff] text-xs space-y-3.5 animate-in fade-in shadow-inner">
             <div className="flex items-center justify-between text-[#3b2a5a] font-bold text-[11px] uppercase tracking-wider">
                 <span>Engine & Credentials</span>
-                <span className="text-[10px] text-[#3b2a5a]/60 normal-case font-normal">GitHub Pages Ready</span>
+                <span className="text-[10px] text-sky-800 bg-sky-100 px-2 py-0.5 rounded-full border border-sky-300 font-mono font-bold">
+                    OpenRouter Primary
+                </span>
             </div>
 
-            {/* Provider Toggle */}
+            {/* Provider Toggle: OpenRouter (Primary) -> Built-in -> NVIDIA NIM (Fallback) */}
             <div>
                 <label className="text-xs font-semibold text-[#3b2a5a] block mb-1.5">Execution Engine</label>
                 <div className="grid grid-cols-3 gap-1.5">
+                    <button
+                        type="button"
+                        onClick={() => onProviderChange(AI_PROVIDERS.OPENROUTER)}
+                        className={`p-2 rounded-xl border text-[11px] font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                            provider === AI_PROVIDERS.OPENROUTER
+                                ? 'bg-[#3b2a5a] text-[#ffd6e8] border-[#ff9ec7] shadow-sm'
+                                : 'bg-white border-[#c9b6ff] text-[#3b2a5a] hover:bg-[#ffd6e8]/40'
+                        }`}
+                    >
+                        <Globe size={14} className={provider === AI_PROVIDERS.OPENROUTER ? 'text-[#ff9ec7]' : 'text-sky-600'} />
+                        <span>OpenRouter</span>
+                        <span className="text-[9px] font-semibold text-[#ffd6e8] bg-sky-900/60 px-1.5 py-0.2 rounded-full">
+                            Primary • Web CORS
+                        </span>
+                    </button>
+
                     <button
                         type="button"
                         onClick={() => onProviderChange(AI_PROVIDERS.BUILTIN)}
@@ -34,9 +52,9 @@ export default function AssistantSettingsDrawer({
                                 : 'bg-white border-[#c9b6ff] text-[#3b2a5a] hover:bg-[#ffd6e8]/40'
                         }`}
                     >
-                        <ShieldCheck size={14} />
+                        <ShieldCheck size={14} className={provider === AI_PROVIDERS.BUILTIN ? 'text-[#ff9ec7]' : 'text-emerald-600'} />
                         <span>Built-in</span>
-                        <span className="text-[9px] font-normal opacity-80">No Key Needed</span>
+                        <span className="text-[9px] font-normal opacity-80">Offline Fallback</span>
                     </button>
 
                     <button
@@ -48,23 +66,9 @@ export default function AssistantSettingsDrawer({
                                 : 'bg-white border-[#c9b6ff] text-[#3b2a5a] hover:bg-[#ffd6e8]/40'
                         }`}
                     >
-                        <Zap size={14} />
+                        <Zap size={14} className={provider === AI_PROVIDERS.NVIDIA ? 'text-[#ff9ec7]' : 'text-amber-600'} />
                         <span>NVIDIA NIM</span>
-                        <span className="text-[9px] font-normal opacity-80">Nemotron 120B</span>
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => onProviderChange(AI_PROVIDERS.OPENROUTER)}
-                        className={`p-2 rounded-xl border text-[11px] font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
-                            provider === AI_PROVIDERS.OPENROUTER
-                                ? 'bg-[#3b2a5a] text-[#ffd6e8] border-[#ff9ec7] shadow-sm'
-                                : 'bg-white border-[#c9b6ff] text-[#3b2a5a] hover:bg-[#ffd6e8]/40'
-                        }`}
-                    >
-                        <Globe size={14} />
-                        <span>OpenRouter</span>
-                        <span className="text-[9px] font-normal opacity-80">Browser CORS</span>
+                        <span className="text-[9px] font-normal opacity-80">Local Fallback</span>
                     </button>
                 </div>
             </div>
@@ -74,7 +78,7 @@ export default function AssistantSettingsDrawer({
                 <div>
                     <div className="flex items-center justify-between mb-1.5">
                         <label className="text-xs font-semibold text-[#3b2a5a]">
-                            {provider === AI_PROVIDERS.OPENROUTER ? 'OpenRouter API Key' : 'NVIDIA NIM API Key'}
+                            {provider === AI_PROVIDERS.OPENROUTER ? 'OpenRouter API Key (Primary)' : 'NVIDIA NIM API Key (Fallback)'}
                         </label>
                         {provider === AI_PROVIDERS.NVIDIA && (
                             <div className="flex items-center gap-1.5">
@@ -115,7 +119,9 @@ export default function AssistantSettingsDrawer({
                         className="w-full bg-white border border-[#c9b6ff] rounded-xl px-3 py-1.5 font-mono text-[#3b2a5a] placeholder-[#3b2a5a]/40 focus:outline-none focus:ring-2 focus:ring-[#ff9ec7] text-xs shadow-xs"
                     />
                     <p className="text-[10px] text-[#3b2a5a]/70 mt-1">
-                        Saved securely in your browser's local storage.
+                        {provider === AI_PROVIDERS.OPENROUTER 
+                            ? 'Primary OpenRouter key: supports free Nemotron Ultra, Llama 3.2, and DeepSeek R1 models with browser CORS.'
+                            : 'Saved securely in your browser\'s local storage.'}
                     </p>
                 </div>
             )}
@@ -124,7 +130,7 @@ export default function AssistantSettingsDrawer({
             {provider === AI_PROVIDERS.NVIDIA && !import.meta.env.DEV && (
                 <div>
                     <label className="text-xs font-semibold text-[#3b2a5a] block mb-1">
-                        Custom CORS Proxy URL (Optional)
+                        Custom CORS Proxy URL (Optional Fallback)
                     </label>
                     <input
                         type="text"

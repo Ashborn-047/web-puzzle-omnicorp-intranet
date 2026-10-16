@@ -1,60 +1,62 @@
 export const AI_PROVIDERS = {
+    OPENROUTER: 'openrouter',
     BUILTIN: 'builtin',
-    NVIDIA: 'nvidia',
-    OPENROUTER: 'openrouter'
+    NVIDIA: 'nvidia'
 };
 
 export const POPULAR_MODELS = [
-    // Built-in OmniCorp Lore Engine (Zero configuration, 100% reliable offline)
-    { 
-        id: 'builtin/omnicorp-neural', 
-        name: 'OmniCorp Neural Architect (Offline • 100% Reliable)', 
-        tag: 'OmniCorp Neural',
-        provider: AI_PROVIDERS.BUILTIN 
-    },
-    // NVIDIA NIM Models (Requires running locally via npm run dev or custom proxy)
-    { 
-        id: 'nvidia/nemotron-3-super-120b-a12b', 
-        name: 'NVIDIA Nemotron 3 120B (Local Dev Server / Proxy)', 
-        tag: 'Nemotron 120B (NIM)',
-        provider: AI_PROVIDERS.NVIDIA 
-    },
-    { 
-        id: 'deepseek-ai/deepseek-v4.1-flash', 
-        name: 'NVIDIA DeepSeek v4.1 Flash (Local Dev Server)', 
-        tag: 'DeepSeek v4.1',
-        provider: AI_PROVIDERS.NVIDIA 
-    },
-    { 
-        id: 'moonshotai/kimi-k3', 
-        name: 'Moonshot Kimi k3 (Local Dev Server)', 
-        tag: 'Kimi k3',
-        provider: AI_PROVIDERS.NVIDIA 
-    },
-    // OpenRouter Models (Full native browser CORS support on GitHub Pages)
+    // OpenRouter Models (PRIMARY • Full native browser CORS support on GitHub Pages)
     { 
         id: 'nvidia/nemotron-3-ultra-550b-a55b:free', 
-        name: 'NVIDIA Nemotron 3 Ultra Free (OpenRouter • 1M Context)', 
-        tag: 'Nemotron Ultra Free',
+        name: 'NVIDIA Nemotron 3 Ultra Free (OpenRouter • Primary • 1M Context)', 
+        tag: 'Nemotron Ultra (Primary)',
         provider: AI_PROVIDERS.OPENROUTER 
     },
     { 
         id: 'nvidia/nemotron-3-super-120b-a12b:free', 
-        name: 'NVIDIA Nemotron 3 120B Free (OpenRouter • Web CORS Ready)', 
+        name: 'NVIDIA Nemotron 3 120B Free (OpenRouter • Fast • Web CORS Ready)', 
         tag: 'Nemotron 120B (Web)',
         provider: AI_PROVIDERS.OPENROUTER 
     },
     { 
         id: 'meta-llama/llama-3.2-3b-instruct:free', 
-        name: 'Meta Llama 3.2 3B Free (OpenRouter • Web CORS Ready)', 
+        name: 'Meta Llama 3.2 3B Free (OpenRouter • Fast General Chat)', 
         tag: 'Llama 3.2 Free',
         provider: AI_PROVIDERS.OPENROUTER 
     },
     { 
         id: 'deepseek/deepseek-r1:free', 
-        name: 'DeepSeek R1 Free (OpenRouter • Web CORS Ready)', 
+        name: 'DeepSeek R1 Free (OpenRouter • Deep Reasoning)', 
         tag: 'DeepSeek R1 Free',
         provider: AI_PROVIDERS.OPENROUTER 
+    },
+
+    // Built-in OmniCorp Lore Engine (Zero configuration, 100% reliable offline fallback)
+    { 
+        id: 'builtin/omnicorp-neural', 
+        name: 'OmniCorp Neural Architect (Offline Fallback • 100% Reliable)', 
+        tag: 'OmniCorp Neural',
+        provider: AI_PROVIDERS.BUILTIN 
+    },
+
+    // NVIDIA NIM Models (Fallback / Requires running locally via npm run dev or custom proxy)
+    { 
+        id: 'nvidia/nemotron-3-super-120b-a12b', 
+        name: 'NVIDIA Nemotron 3 120B (NIM Fallback • Dev Server / Proxy)', 
+        tag: 'Nemotron 120B (NIM Fallback)',
+        provider: AI_PROVIDERS.NVIDIA 
+    },
+    { 
+        id: 'deepseek-ai/deepseek-v4.1-flash', 
+        name: 'NVIDIA DeepSeek v4.1 Flash (NIM Fallback • Dev Server)', 
+        tag: 'DeepSeek Flash (Fallback)',
+        provider: AI_PROVIDERS.NVIDIA 
+    },
+    { 
+        id: 'moonshotai/kimi-k3', 
+        name: 'Moonshot Kimi k3 (NIM Fallback • Dev Server)', 
+        tag: 'Kimi k3 (Fallback)',
+        provider: AI_PROVIDERS.NVIDIA 
     }
 ];
 
