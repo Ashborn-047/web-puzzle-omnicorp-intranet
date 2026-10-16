@@ -4,8 +4,7 @@ import {
     SlidersHorizontal, UserPlus, Zap, Clock
 } from 'lucide-react';
 import {
-    AVAILABLE_MODELS,
-    DEFAULT_MODEL_ID,
+    ACTIVE_MODEL,
     OMNICORP_SYSTEM_PROMPT,
     CHARACTER_PRESETS,
     QUICK_INSPIRATION_CHIPS
@@ -22,24 +21,14 @@ export default function NemotronAssistant({
     decisionLines = []
 }) {
     const openrouterEnvKey = import.meta.env.VITE_OPENROUTER_API_KEY || '';
+    const nvidiaEnvKey = import.meta.env.VITE_NVIDIA_API_KEY || import.meta.env.VITE_NVIDIA_API_KEY_ALT || '';
 
     const [apiKey, setApiKey] = useState('');
-    const [selectedModelId, setSelectedModelId] = useState(() => {
-        const saved = localStorage.getItem('omnicorp_nemotron_model');
-        // Default to fast model if not set or if previously set to congested 550b ultra
-        if (!saved || saved === 'nvidia/nemotron-3-ultra-550b-a55b:free') {
-            localStorage.setItem('omnicorp_nemotron_model', DEFAULT_MODEL_ID);
-            return DEFAULT_MODEL_ID;
-        }
-        return saved;
-    });
-
-    const activeModel = AVAILABLE_MODELS.find(m => m.id === selectedModelId) || AVAILABLE_MODELS[0];
-
+    const [nvidiaKey, setNvidiaKey] = useState('');
     const [messages, setMessages] = useState([
         {
             role: 'assistant',
-            content: `Hello! I am ${activeModel.tag}, your AI co-writer. How can I help you today? You can ask me to draft characters, formulate puzzle clues, critique lore, or chat about anything.`
+            content: `Hello! I am ${ACTIVE_MODEL.tag}, your AI co-writer. How can I help you today? You can ask me to draft characters, formulate puzzle clues, critique lore, or chat about anything.`
         }
     ]);
     const [inputPrompt, setInputPrompt] = useState('');
@@ -52,12 +41,15 @@ export default function NemotronAssistant({
     const messagesEndRef = useRef(null);
     const abortControllerRef = useRef(null);
     const timerIntervalRef = useRef(null);
+    const firstTokenReceivedRef = useRef(false);
 
-    // Initial load of OpenRouter key
+    // Initial load of keys
     useEffect(() => {
         const savedOpenRouterKey = localStorage.getItem('omnicorp_openrouter_api_key') || openrouterEnvKey;
+        const savedNvidiaKey = localStorage.getItem('omnicorp_nvidia_api_key') || nvidiaEnvKey;
         if (savedOpenRouterKey) setApiKey(savedOpenRouterKey);
-    }, [isOpen, openrouterEnvKey]);
+        if (savedNvidiaKey) setNvidiaKey(savedNvidiaKey);
+    }, [isOpen, openrouterEnvKey, nvidiaEnvKey]);
 
     useEffect(() => {
         if (isOpen) {
@@ -65,18 +57,7 @@ export default function NemotronAssistant({
         }
     }, [messages, isOpen]);
 
-    useEffect(() => {
-        return () => {
-            if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-        };
-    }, []);
-
     if (!isOpen) return null;
-
-    const handleModelChange = (newModelId) => {
-        setSelectedModelId(newModelId);
-        localStorage.setItem('omnicorp_nemotron_model', newModelId);
-    };
 
     const handleCancelRequest = () => {
         if (abortControllerRef.current) {
@@ -90,50 +71,60 @@ export default function NemotronAssistant({
         setErrorMsg('Request cancelled by user.');
     };
 
-    const handleSwitchModelAndRetry = (fastModelId = DEFAULT_MODEL_ID) => {
-        handleCancelRequest();
-        handleModelChange(fastModelId);
-        // Find last user prompt
-        const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
-        if (lastUserMsg) {
-            setTimeout(() => {
-                handleSendMessage(lastUserMsg.content, fastModelId);
-            }, 100);
-        }
-    };
-
     const handleSaveSettings = () => {
         localStorage.setItem('omnicorp_openrouter_api_key', apiKey.trim());
-        localStorage.setItem('omnicorp_nemotron_model', selectedModelId);
+        localStorage.setItem('omnicorp_nvidia_api_key', nvidiaKey.trim());
         setIsSettingsOpen(false);
         setErrorMsg('');
         setSavedBadge(true);
         setTimeout(() => setSavedBadge(false), 2000);
     };
 
-    const handleSendMessage = async (customPrompt, overrideModelId, retryCount = 0) => {
+    const handleSendMessage = async (customPrompt, retryCount = 0) => {
         const textToSend = customPrompt || inputPrompt;
         if (!textToSend.trim()) return;
 
-        if (!apiKey.trim()) {
+        if (!apiKey.trim() && !nvidiaKey.trim() && !nvidiaEnvKey.trim()) {
             setIsSettingsOpen(true);
             setErrorMsg('Please enter your OpenRouter API key (sk-or-v1-...) in Settings below to begin chatting.');
             return;
         }
 
-        if (retryCount === 0) {
-            const newMessages = [...messages, { role: 'user', content: textToSend }];
-            setMessages(newMessages);
-            setInputPrompt('');
-        }
-
+        const newMessages = [...messages, { role: 'user', content: textToSend }];
+        setMessages(newMessages);
+        setInputPrompt('');
         setIsLoading(true);
-        setStreamTimer(0);
         setErrorMsg('');
+        setStreamTimer(0);
+        firstTokenReceivedRef.current = false;
 
         if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
         timerIntervalRef.current = setInterval(() => {
-            setStreamTimer(s => s + 1);
+            setStreamTimer(t => {
+                const nextSec = t + 1;
+                // 25s First-Token Guard: Prevent spinning for 150 seconds when Nvidia upstream queue is full
+                if (nextSec >= 25 && !firstTokenReceivedRef.current) {
+                    if (abortControllerRef.current) {
+                        abortControllerRef.current.abort();
+                    }
+                    clearInterval(timerIntervalRef.current);
+                    timerIntervalRef.current = null;
+                    setIsLoading(false);
+                    setErrorMsg('⚠️ Upstream timeout: Nvidia Nemotron Ultra queue exceeded 25s without first token. Worker slots are momentarily congested. Please retry in a few moments.');
+                    setMessages(prev => {
+                        const updated = [...prev];
+                        if (updated.length > 0 && updated[updated.length - 1].isStreaming) {
+                            updated[updated.length - 1] = {
+                                role: 'assistant',
+                                content: '⚠️ **Upstream Timeout (25s)**: Nvidia Nemotron Ultra workers are currently congested. Please retry in a moment.',
+                                isStreaming: false
+                            };
+                        }
+                        return updated;
+                    });
+                }
+                return nextSec;
+            });
         }, 1000);
 
         abortControllerRef.current = new AbortController();
@@ -141,42 +132,75 @@ export default function NemotronAssistant({
         try {
             const contextSummary = `Currently configured: ${characters.length} characters in roster, ${decisionLines.length} decision lines in graph.`;
 
-            // Prepare messages for API (exclude any prior streaming empty placeholders)
-            const cleanedHistory = (retryCount === 0 
-                ? [...messages, { role: 'user', content: textToSend }]
-                : messages
-            ).filter(m => m.content && !m.content.startsWith('⚠️'));
+            const cleanedHistory = newMessages.filter(m => m.content && !m.content.startsWith('⚠️'));
 
             const apiMessages = [
                 { role: 'system', content: `${OMNICORP_SYSTEM_PROMPT}\n\n[Active Project Context: ${contextSummary}]` },
                 ...cleanedHistory.slice(-6).map(m => ({ role: m.role, content: m.content }))
             ];
 
-            const modelToUse = overrideModelId || selectedModelId;
+            let response = null;
 
-            const payloadBody = JSON.stringify({
-                model: modelToUse,
-                messages: apiMessages,
-                temperature: 0.6,
-                max_tokens: 2048,
-                stream: true
-            });
+            // Primary: OpenRouter NVIDIA Nemotron 3 Ultra
+            if (apiKey.trim()) {
+                try {
+                    const openRouterRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey.trim()}`,
+                            'HTTP-Referer': window.location.origin,
+                            'X-Title': 'OmniCorp Intranet Studio'
+                        },
+                        body: JSON.stringify({
+                            model: ACTIVE_MODEL.id,
+                            messages: apiMessages,
+                            temperature: 0.6,
+                            max_tokens: 2048,
+                            stream: true
+                        }),
+                        signal: abortControllerRef.current.signal
+                    });
 
-            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey.trim()}`,
-                    'HTTP-Referer': window.location.origin,
-                    'X-Title': 'OmniCorp Intranet Studio'
-                },
-                body: payloadBody,
-                signal: abortControllerRef.current.signal
-            });
+                    if (openRouterRes.ok) {
+                        response = openRouterRes;
+                    }
+                } catch (e) {
+                    if (e.name === 'AbortError') return;
+                    console.warn('OpenRouter connection attempt failed, trying fallback if configured...', e);
+                }
+            }
 
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.message || errData.error?.message || `HTTP ${response.status}`);
+            // Fallback: NVIDIA NIM API if primary unavailable
+            const fallbackKey = nvidiaKey.trim() || nvidiaEnvKey.trim();
+            if (!response && fallbackKey) {
+                try {
+                    const nimRes = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${fallbackKey}`
+                        },
+                        body: JSON.stringify({
+                            model: 'nvidia/nemotron-4-340b-instruct',
+                            messages: apiMessages,
+                            temperature: 0.6,
+                            max_tokens: 2048,
+                            stream: true
+                        }),
+                        signal: abortControllerRef.current.signal
+                    });
+
+                    if (nimRes.ok) {
+                        response = nimRes;
+                    }
+                } catch (e) {
+                    if (e.name === 'AbortError') return;
+                }
+            }
+
+            if (!response) {
+                throw new Error('Unable to reach OpenRouter. Please check your API key in Settings (⚙️).');
             }
 
             setMessages(prev => {
@@ -300,7 +324,7 @@ export default function NemotronAssistant({
                     console.log(`OpenRouter Nvidia worker busy, auto-retrying in 1.2s (attempt ${retryCount + 1})...`);
                     setErrorMsg('Nvidia worker momentarily busy, auto-retrying...');
                     await new Promise(r => setTimeout(r, 1200));
-                    return handleSendMessage(customPrompt, overrideModelId, retryCount + 1);
+                    return handleSendMessage(customPrompt, retryCount + 1);
                 }
 
                 console.warn('OpenRouter API error:', err);
@@ -310,7 +334,7 @@ export default function NemotronAssistant({
                     if (updated.length > 0 && updated[updated.length - 1].isStreaming) {
                         updated[updated.length - 1] = {
                             role: 'assistant',
-                            content: `⚠️ **OpenRouter Error**: ${err.message}. Please retry or pick another model above.`,
+                            content: `⚠️ **OpenRouter Error**: ${err.message}. Please retry.`,
                             isStreaming: false
                         };
                         return updated;
@@ -319,7 +343,7 @@ export default function NemotronAssistant({
                         ...prev,
                         {
                             role: 'assistant',
-                            content: `⚠️ **OpenRouter Error**: ${err.message}. Please retry or pick another model above.`
+                            content: `⚠️ **OpenRouter Error**: ${err.message}. Please retry.`
                         }
                     ];
                 });
@@ -364,7 +388,7 @@ export default function NemotronAssistant({
                             </span>
                         </div>
                         <p className="text-[11px] text-[#3b2a5a]/70 font-medium truncate max-w-[210px]">
-                            {activeModel.name}
+                            {ACTIVE_MODEL.name}
                         </p>
                     </div>
                 </div>
@@ -377,7 +401,7 @@ export default function NemotronAssistant({
                                 ? 'bg-[#3b2a5a] text-[#ffd6e8] border-[#ff9ec7]' 
                                 : 'hover:bg-[#ffd6e8]/50 text-[#3b2a5a] border-transparent'
                         }`}
-                        title="Configure OpenRouter API Key & Models"
+                        title="Configure API Keys & Fallback"
                     >
                         <SlidersHorizontal size={16} />
                     </button>
@@ -391,26 +415,15 @@ export default function NemotronAssistant({
                 </div>
             </div>
 
-            {/* Model Info & Quick Switch Bar */}
+            {/* Model Info Bar */}
             <div className="px-4 py-2.5 bg-[#f3e8ff] border-b border-[#c9b6ff] flex items-center justify-between gap-2 shrink-0 shadow-xs">
                 <div className="flex items-center gap-1.5 text-[#3b2a5a] font-mono text-[11px] font-bold">
                     <Sparkles size={13} className="text-[#3b2a5a]" />
-                    <span>MODEL:</span>
+                    <span>ACTIVE MODEL:</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                    <select
-                        value={selectedModelId}
-                        onChange={(e) => handleModelChange(e.target.value)}
-                        disabled={isLoading}
-                        className="bg-white border border-[#c9b6ff] rounded-xl px-2.5 py-1 text-[#3b2a5a] text-xs font-bold shadow-xs focus:outline-none focus:ring-2 focus:ring-[#ff9ec7] cursor-pointer disabled:opacity-50"
-                        title="Quick-switch active model"
-                    >
-                        {AVAILABLE_MODELS.map((m) => (
-                            <option key={m.id} value={m.id}>
-                                {m.tag} ({m.badge})
-                            </option>
-                        ))}
-                    </select>
+                <div className="flex items-center gap-1.5 bg-white border border-[#c9b6ff] rounded-xl px-2.5 py-1 text-[#3b2a5a] text-xs font-bold shadow-xs">
+                    <Zap size={12} className="text-[#ff9ec7]" />
+                    <span>{ACTIVE_MODEL.tag}</span>
                 </div>
             </div>
 
@@ -419,8 +432,8 @@ export default function NemotronAssistant({
                 <AssistantSettingsDrawer
                     apiKey={apiKey}
                     setApiKey={setApiKey}
-                    selectedModelId={selectedModelId}
-                    setSelectedModelId={handleModelChange}
+                    nvidiaKey={nvidiaKey}
+                    setNvidiaKey={setNvidiaKey}
                     savedBadge={savedBadge}
                     onSaveSettings={handleSaveSettings}
                 />
@@ -440,7 +453,7 @@ export default function NemotronAssistant({
                     <AssistantChatBubble
                         key={idx}
                         message={m}
-                        modelTag={activeModel.tag}
+                        modelTag={ACTIVE_MODEL.tag}
                         onImportCharacter={handleImportCharacter}
                         onOpenAddModal={onOpenAddModal}
                     />
@@ -451,7 +464,7 @@ export default function NemotronAssistant({
                         <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 text-[#3b2a5a] text-xs font-semibold">
                                 <RefreshCw size={14} className="animate-spin text-[#3b2a5a] shrink-0" />
-                                <span>{activeModel.tag} is streaming response ({streamTimer}s)...</span>
+                                <span>{ACTIVE_MODEL.tag} is streaming response ({streamTimer}s)...</span>
                             </div>
                             <button
                                 type="button"
@@ -462,27 +475,6 @@ export default function NemotronAssistant({
                                 Cancel
                             </button>
                         </div>
-
-                        {/* OpenRouter Free Tier Congestion / Queue Helper */}
-                        {streamTimer >= 8 && !messages[messages.length - 1]?.content && !messages[messages.length - 1]?.reasoning && (
-                            <div className="p-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-[11px] space-y-1.5 animate-in fade-in">
-                                <div className="flex items-center justify-between">
-                                    <span className="font-semibold flex items-center gap-1.5">
-                                        <Clock size={12} className="text-amber-600" /> OpenRouter queue wait ({streamTimer}s)...
-                                    </span>
-                                </div>
-                                <div className="text-[10px] text-amber-800 flex items-center justify-between gap-2 pt-1 border-t border-amber-200">
-                                    <span>Takes too long? Switch to Fast Model:</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleSwitchModelAndRetry(DEFAULT_MODEL_ID)}
-                                        className="px-2 py-0.5 bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold rounded-lg cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
-                                    >
-                                        ⚡ Fast Nano (~2s)
-                                    </button>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 )}
                 <div ref={messagesEndRef} />
@@ -559,7 +551,7 @@ export default function NemotronAssistant({
                         type="text"
                         value={inputPrompt}
                         onChange={(e) => setInputPrompt(e.target.value)}
-                        placeholder={`Ask ${activeModel.tag} to write clues, characters, lore...`}
+                        placeholder={`Ask ${ACTIVE_MODEL.tag} to write clues, characters, lore...`}
                         disabled={isLoading}
                         className="flex-1 bg-[#fbf7ff] border border-[#c9b6ff] rounded-xl px-3.5 py-2 text-xs text-[#3b2a5a] placeholder-[#3b2a5a]/45 focus:outline-none focus:ring-2 focus:ring-[#ff9ec7] font-medium shadow-xs"
                     />

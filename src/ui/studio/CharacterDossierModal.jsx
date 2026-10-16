@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import DossierHeader from './dossier/DossierHeader.jsx';
 import DossierDetailsPane from './dossier/DossierDetailsPane.jsx';
 import DossierAiCoWriter from './dossier/DossierAiCoWriter.jsx';
+import { ACTIVE_MODEL } from './assistant/assistantConstants.js';
 
 // Initial greeting in collaborative chat (defined at module scope for pure rendering)
 const getInitialGreeting = (char) => {
@@ -164,13 +165,12 @@ export default function CharacterDossierModal({
         abortRef.current = new AbortController();
 
         const savedOpenRouterKey = (localStorage.getItem('omnicorp_openrouter_api_key') || import.meta.env.VITE_OPENROUTER_API_KEY || '').trim();
-        const selectedModel = localStorage.getItem('omnicorp_nemotron_model') || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free';
-        const apiKey = savedOpenRouterKey;
+        const savedNvidiaKey = (localStorage.getItem('omnicorp_nvidia_api_key') || import.meta.env.VITE_NVIDIA_API_KEY || import.meta.env.VITE_NVIDIA_API_KEY_ALT || '').trim();
 
-        // If no OpenRouter key is set, guide the user directly
-        if (!apiKey) {
+        // If neither key is available, guide user
+        if (!savedOpenRouterKey && !savedNvidiaKey) {
             setShowKeyConfig(true);
-            setAiError('OpenRouter API key required. Please enter your key in the top drawer to connect AI Co-Writer.');
+            setAiError('OpenRouter API key required. Please enter your key in the drawer to connect AI Co-Writer.');
             setIsAiGenerating(false);
             abortRef.current = null;
             return;
@@ -203,48 +203,65 @@ COLLABORATIVE CO-WRITING INSTRUCTIONS:
                 ...updatedHistory.slice(-8).map(m => ({ role: m.role, content: m.content }))
             ];
 
-            const payloadBody = JSON.stringify({
-                model: selectedModel,
-                messages: apiMessages,
-                temperature: 0.7,
-                max_tokens: 2048,
-                stream: true
-            });
-
-            const endpoints = ['https://openrouter.ai/api/v1/chat/completions'];
-            const headers = {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey.trim()}`,
-                'HTTP-Referer': window.location.origin,
-                'X-Title': 'OmniCorp Intranet Studio'
-            };
-
             let response = null;
-            let lastErr = null;
 
-            for (const ep of endpoints) {
+            // Primary: OpenRouter NVIDIA Nemotron 3 Ultra
+            if (savedOpenRouterKey) {
                 try {
-                    const res = await fetch(ep, {
+                    const openRouterRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                         method: 'POST',
-                        headers,
-                        body: payloadBody,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${savedOpenRouterKey}`,
+                            'HTTP-Referer': window.location.origin,
+                            'X-Title': 'OmniCorp Intranet Studio'
+                        },
+                        body: JSON.stringify({
+                            model: ACTIVE_MODEL.id,
+                            messages: apiMessages,
+                            temperature: 0.7,
+                            max_tokens: 2048,
+                            stream: true
+                        }),
                         signal: abortRef.current.signal
                     });
-                    if (res.ok) {
-                        response = res;
-                        break;
-                    } else {
-                        const errData = await res.json().catch(() => ({}));
-                        throw new Error(errData.message || errData.error?.message || `HTTP ${res.status}`);
+                    if (openRouterRes.ok) {
+                        response = openRouterRes;
                     }
                 } catch (e) {
                     if (e.name === 'AbortError') return;
-                    lastErr = e;
+                    console.warn('OpenRouter dossier call failed, attempting fallback...', e);
+                }
+            }
+
+            // Fallback: NVIDIA NIM
+            if (!response && savedNvidiaKey) {
+                try {
+                    const nimRes = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${savedNvidiaKey}`
+                        },
+                        body: JSON.stringify({
+                            model: 'nvidia/nemotron-4-340b-instruct',
+                            messages: apiMessages,
+                            temperature: 0.7,
+                            max_tokens: 2048,
+                            stream: true
+                        }),
+                        signal: abortRef.current.signal
+                    });
+                    if (nimRes.ok) {
+                        response = nimRes;
+                    }
+                } catch (e) {
+                    if (e.name === 'AbortError') return;
                 }
             }
 
             if (!response) {
-                throw new Error(lastErr?.message || 'Could not reach OpenRouter API endpoint.');
+                throw new Error('Could not reach model via OpenRouter or NVIDIA NIM. Please verify your API key in Settings.');
             }
 
             setChatMessages(prev => [...prev, { role: 'assistant', content: '', reasoning: '', isStreaming: true }]);

@@ -6,6 +6,7 @@ import {
 import { computeAuditReport } from './auditor/auditEngine';
 import AuditorHealthGauge from './auditor/AuditorHealthGauge';
 import AuditorIssueCard from './auditor/AuditorIssueCard';
+import { ACTIVE_MODEL } from './assistant/assistantConstants';
 
 export default function PlotHoleAuditor({
     characters = [],
@@ -24,8 +25,9 @@ export default function PlotHoleAuditor({
     const [aiScanError, setAiScanError] = useState('');
     const [actionSuccessMsg, setActionSuccessMsg] = useState('');
 
-    // OpenRouter Key setup
+    // API Keys setup
     const openRouterKey = localStorage.getItem('omnicorp_openrouter_api_key') || import.meta.env.VITE_OPENROUTER_API_KEY || '';
+    const nvidiaKey = localStorage.getItem('omnicorp_nvidia_api_key') || import.meta.env.VITE_NVIDIA_API_KEY || import.meta.env.VITE_NVIDIA_API_KEY_ALT || '';
 
     // Structural rule-based audit engine
     const auditReport = useMemo(() => {
@@ -95,35 +97,65 @@ Format your response STRICTLY as a JSON array of objects with the following sche
 ]
 Output ONLY valid JSON. No conversational preamble.`;
 
-        if (!openRouterKey || openRouterKey.trim() === '') {
-            setAiScanError('OpenRouter API key required to run AI Deep Lore Scan. Please configure your key in the AI Co-Writer settings (⚙️).');
+        if (!openRouterKey.trim() && !nvidiaKey.trim()) {
+            setAiScanError('API key required to run AI Deep Lore Scan. Please configure your key in the AI Co-Writer settings (⚙️).');
             setIsAiScanning(false);
             return;
         }
 
         try {
-            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${openRouterKey.trim()}`,
-                    'HTTP-Referer': window.location.origin,
-                    'X-Title': 'OmniCorp Intranet Studio'
-                },
-                body: JSON.stringify({
-                    model: localStorage.getItem('omnicorp_nemotron_model') || 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
-                    messages: [
-                        { role: 'system', content: 'You are a meticulous narrative game designer auditing a cosmic horror puzzle ARG for plot holes.' },
-                        { role: 'user', content: prompt }
-                    ],
-                    temperature: 0.5,
-                    max_tokens: 2048
-                })
-            });
+            let response = null;
 
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.message || errData.error?.message || `HTTP ${response.status}`);
+            if (openRouterKey.trim()) {
+                try {
+                    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${openRouterKey.trim()}`,
+                            'HTTP-Referer': window.location.origin,
+                            'X-Title': 'OmniCorp Intranet Studio'
+                        },
+                        body: JSON.stringify({
+                            model: ACTIVE_MODEL.id,
+                            messages: [
+                                { role: 'system', content: 'You are a meticulous narrative game designer auditing a cosmic horror puzzle ARG for plot holes.' },
+                                { role: 'user', content: prompt }
+                            ],
+                            temperature: 0.5,
+                            max_tokens: 2048
+                        })
+                    });
+                    if (res.ok) response = res;
+                } catch (e) {
+                    console.warn('OpenRouter audit scan failed, attempting fallback...', e);
+                }
+            }
+
+            if (!response && nvidiaKey.trim()) {
+                try {
+                    const nimRes = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${nvidiaKey.trim()}`
+                        },
+                        body: JSON.stringify({
+                            model: 'nvidia/nemotron-4-340b-instruct',
+                            messages: [
+                                { role: 'system', content: 'You are a meticulous narrative game designer auditing a cosmic horror puzzle ARG for plot holes.' },
+                                { role: 'user', content: prompt }
+                            ],
+                            temperature: 0.5,
+                            max_tokens: 2048
+                        })
+                    });
+                    if (nimRes.ok) response = nimRes;
+                } catch (e) {}
+            }
+
+            if (!response) {
+                throw new Error('Could not reach model via OpenRouter or NVIDIA NIM.');
             }
 
             const data = await response.json();

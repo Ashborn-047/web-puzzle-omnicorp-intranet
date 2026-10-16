@@ -1,30 +1,8 @@
-export const AVAILABLE_MODELS = [
-    {
-        id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
-        name: 'NVIDIA Nemotron 3 Nano Omni (Free, Fast ⚡)',
-        tag: 'Nemotron Nano',
-        badge: 'FAST ⚡ ~2-6s',
-        desc: '30B MoE with live chain-of-thought reasoning. Recommended for immediate responses.'
-    },
-    {
-        id: 'nvidia/nemotron-3.5-lightning:free',
-        name: 'NVIDIA Nemotron 3.5 Lightning (Free)',
-        tag: 'Nemotron Lightning',
-        badge: 'LIGHTNING',
-        desc: '30B agentic high-throughput reasoning model.'
-    },
-    {
-        id: 'nvidia/nemotron-3-ultra-550b-a55b:free',
-        name: 'NVIDIA Nemotron 3 Ultra (Free, 550B)',
-        tag: 'Nemotron Ultra',
-        badge: '550B DEEP',
-        desc: 'Massive 550B MoE model. Deep reasoning, but subject to high OpenRouter queues on free tier.'
-    }
-];
-
-export const DEFAULT_MODEL_ID = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free';
-
-export const ACTIVE_MODEL = AVAILABLE_MODELS[0];
+export const ACTIVE_MODEL = {
+    id: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+    name: 'NVIDIA Nemotron 3 Ultra Free (OpenRouter)',
+    tag: 'Nemotron Ultra'
+};
 
 
 export const OMNICORP_SYSTEM_PROMPT = `You are a helpful, conversational, and versatile AI assistant. 
